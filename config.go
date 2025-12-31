@@ -17,14 +17,20 @@ type Config struct {
 }
 
 func LoadConfig(dir string) (*Config, error) {
-	config := &Config{Include: []string{}}
+	seen := make(map[string]bool)
+	var includes []string
 
 	projectConfig, err := loadConfigFile(filepath.Join(dir, configFileName))
 	if err != nil {
 		return nil, err
 	}
 	if projectConfig != nil {
-		config.Include = append(config.Include, projectConfig.Include...)
+		for _, inc := range projectConfig.Include {
+			if !seen[inc] {
+				seen[inc] = true
+				includes = append(includes, inc)
+			}
+		}
 	}
 
 	localConfig, err := loadConfigFile(filepath.Join(dir, localConfigFileName))
@@ -32,10 +38,15 @@ func LoadConfig(dir string) (*Config, error) {
 		return nil, err
 	}
 	if localConfig != nil {
-		config.Include = append(config.Include, localConfig.Include...)
+		for _, inc := range localConfig.Include {
+			if !seen[inc] {
+				seen[inc] = true
+				includes = append(includes, inc)
+			}
+		}
 	}
 
-	return config, nil
+	return &Config{Include: includes}, nil
 }
 
 func loadConfigFile(path string) (*Config, error) {
