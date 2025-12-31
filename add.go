@@ -35,7 +35,20 @@ func Add(name string) error {
 }
 
 func createWorktree(branch, path string) error {
-	cmd := exec.Command("git", "worktree", "add", "-b", branch, path)
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("directory already exists: %s", path)
+	}
+
+	var cmd *exec.Cmd
+	if branchExists(branch) {
+		if branchInUse(branch) {
+			return fmt.Errorf("branch %s is already checked out in another worktree", branch)
+		}
+		cmd = exec.Command("git", "worktree", "add", path, branch)
+	} else {
+		cmd = exec.Command("git", "worktree", "add", "-b", branch, path)
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -44,6 +57,27 @@ func createWorktree(branch, path string) error {
 	}
 
 	return nil
+}
+
+func branchExists(name string) bool {
+	cmd := exec.Command("git", "rev-parse", "--verify", "refs/heads/"+name)
+	return cmd.Run() == nil
+}
+
+func branchInUse(name string) bool {
+	cmd := exec.Command("git", "worktree", "list", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "branch refs/heads/"+name) {
+			return true
+		}
+	}
+	return false
 }
 
 func createSymlinks(srcDir, dstDir string, targets []string) error {
