@@ -10,12 +10,16 @@ import (
 
 // AddCommand creates git worktrees with symlinks.
 type AddCommand struct {
-	FS FileSystem
+	FS     FileSystem
+	Config *Config
 }
 
-// NewAddCommand creates a new AddCommand with default OS filesystem.
-func NewAddCommand() *AddCommand {
-	return &AddCommand{FS: osFS{}}
+// NewAddCommand creates a new AddCommand with the given config.
+func NewAddCommand(cfg *Config) *AddCommand {
+	return &AddCommand{
+		FS:     osFS{},
+		Config: cfg,
+	}
 }
 
 // Run creates a new worktree for the given branch name.
@@ -25,11 +29,6 @@ func (c *AddCommand) Run(name string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	config, err := LoadConfig(cwd)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
 	dirName := strings.ReplaceAll(name, "/", "-")
 	worktreePath := filepath.Join(cwd, "..", dirName)
 
@@ -37,7 +36,7 @@ func (c *AddCommand) Run(name string) error {
 		return err
 	}
 
-	if err := c.createSymlinks(cwd, worktreePath, config.Include); err != nil {
+	if err := c.createSymlinks(cwd, worktreePath, c.Config.Include); err != nil {
 		return err
 	}
 

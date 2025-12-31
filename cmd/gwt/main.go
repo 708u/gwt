@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/708u/gwt"
@@ -17,7 +18,17 @@ var addCmd = &cobra.Command{
 	Short: "Create a new worktree with a new branch",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return gwt.NewAddCommand().Run(args[0])
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+
+		cfg, err := gwt.LoadConfig(cwd)
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
+
+		return gwt.NewAddCommand(cfg).Run(args[0])
 	},
 }
 
