@@ -15,12 +15,18 @@ type AddCommand struct {
 	Sync   bool
 }
 
+// AddOptions holds options for the add command.
+type AddOptions struct {
+	Sync bool
+}
+
 // NewAddCommand creates a new AddCommand with the given config.
-func NewAddCommand(cfg *Config) *AddCommand {
+func NewAddCommand(cfg *Config, opts AddOptions) *AddCommand {
 	return &AddCommand{
 		FS:     osFS{},
 		Git:    NewGitRunner(cfg.WorktreeSourceDir),
 		Config: cfg,
+		Sync:   opts.Sync,
 	}
 }
 

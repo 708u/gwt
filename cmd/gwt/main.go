@@ -103,8 +103,7 @@ var addCmd = &cobra.Command{
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		sync, _ := cmd.Flags().GetBool("sync")
 
-		addCmd := gwt.NewAddCommand(cfg)
-		addCmd.Sync = sync
+		addCmd := gwt.NewAddCommand(cfg, gwt.AddOptions{Sync: sync})
 		result, err := addCmd.Run(args[0])
 		if err != nil {
 			return err
