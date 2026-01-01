@@ -129,7 +129,7 @@ func TestAddCommand_Run(t *testing.T) {
 		{
 			name:      "slash_in_branch_name",
 			branch:    "feature/foo",
-			config:    &Config{WorktreeBaseDir: "/worktrees"},
+			config:    &Config{WorktreeDestBaseDir: "/worktrees"},
 			checkPath: "/worktrees/feature-foo",
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()

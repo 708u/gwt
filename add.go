@@ -31,23 +31,27 @@ func NewAddCommand(cfg *Config) *AddCommand {
 
 // Run creates a new worktree for the given branch name.
 func (c *AddCommand) Run(name string) error {
-	cwd, err := c.FS.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
+	srcDir := c.Config.WorktreeSourceDir
+	if srcDir == "" {
+		var err error
+		srcDir, err = c.FS.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
 	}
 
 	dirName := strings.ReplaceAll(name, "/", "-")
-	baseDir := c.Config.WorktreeBaseDir
-	if baseDir == "" {
-		baseDir = filepath.Join(cwd, "..")
+	destBaseDir := c.Config.WorktreeDestBaseDir
+	if destBaseDir == "" {
+		destBaseDir = filepath.Join(srcDir, "..")
 	}
-	wtPath := filepath.Join(baseDir, dirName)
+	wtPath := filepath.Join(destBaseDir, dirName)
 
 	if err := c.createWorktree(name, wtPath); err != nil {
 		return err
 	}
 
-	if err := c.createSymlinks(cwd, wtPath, c.Config.Include); err != nil {
+	if err := c.createSymlinks(srcDir, wtPath, c.Config.Include); err != nil {
 		return err
 	}
 

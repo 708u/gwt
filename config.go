@@ -14,8 +14,9 @@ const (
 )
 
 type Config struct {
-	Include         []string `toml:"include"`
-	WorktreeBaseDir string   `toml:"worktree_base_dir"`
+	Include             []string `toml:"include"`
+	WorktreeDestBaseDir string   `toml:"worktree_destination_base_dir"`
+	WorktreeSourceDir   string   `toml:"worktree_source_dir"`
 }
 
 func LoadConfig(dir string) (*Config, error) {
@@ -48,17 +49,27 @@ func LoadConfig(dir string) (*Config, error) {
 		}
 	}
 
-	var worktreeBaseDir string
-	if projCfg != nil && projCfg.WorktreeBaseDir != "" {
-		worktreeBaseDir = projCfg.WorktreeBaseDir
+	// TODO: projectとlocalで共通の値をどうするか考える
+	var destBaseDir string
+	if projCfg != nil && projCfg.WorktreeDestBaseDir != "" {
+		destBaseDir = projCfg.WorktreeDestBaseDir
 	}
-	if localCfg != nil && localCfg.WorktreeBaseDir != "" {
-		worktreeBaseDir = localCfg.WorktreeBaseDir
+	if localCfg != nil && localCfg.WorktreeDestBaseDir != "" {
+		destBaseDir = localCfg.WorktreeDestBaseDir
+	}
+
+	var srcDir string
+	if projCfg != nil && projCfg.WorktreeSourceDir != "" {
+		srcDir = projCfg.WorktreeSourceDir
+	}
+	if localCfg != nil && localCfg.WorktreeSourceDir != "" {
+		srcDir = localCfg.WorktreeSourceDir
 	}
 
 	return &Config{
-		Include:         includes,
-		WorktreeBaseDir: worktreeBaseDir,
+		Include:             includes,
+		WorktreeDestBaseDir: destBaseDir,
+		WorktreeSourceDir:   srcDir,
 	}, nil
 }
 
