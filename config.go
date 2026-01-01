@@ -1,6 +1,7 @@
 package gwt
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -14,6 +15,7 @@ const (
 )
 
 // Config holds the merged configuration for the application.
+// All path fields are resolved to absolute paths by LoadConfig.
 type Config struct {
 	Symlinks            []string `toml:"symlinks"`
 	WorktreeDestBaseDir string   `toml:"worktree_destination_base_dir"`
@@ -68,6 +70,10 @@ func LoadConfig(dir string) (*LoadConfigResult, error) {
 	if projCfg != nil && projCfg.WorktreeSourceDir != "" {
 		srcDir = projCfg.WorktreeSourceDir
 	}
+	srcDir, err = filepath.Abs(srcDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve worktree source directory: %w", err)
+	}
 
 	destBaseDir := ""
 	if projCfg != nil && projCfg.WorktreeDestBaseDir != "" {
@@ -76,6 +82,10 @@ func LoadConfig(dir string) (*LoadConfigResult, error) {
 	if destBaseDir == "" {
 		repoName := filepath.Base(srcDir)
 		destBaseDir = filepath.Join(srcDir, "..", repoName+"-worktree")
+	}
+	destBaseDir, err = filepath.Abs(destBaseDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve worktree destination base directory: %w", err)
 	}
 
 	return &LoadConfigResult{
