@@ -15,11 +15,11 @@ type AddCommand struct {
 	Config *Config
 }
 
-// NewAddCommand creates a new AddCommand with the given config and git runner.
-func NewAddCommand(cfg *Config, git *GitRunner) *AddCommand {
+// NewAddCommand creates a new AddCommand with the given config.
+func NewAddCommand(cfg *Config) *AddCommand {
 	return &AddCommand{
 		FS:     osFS{},
-		Git:    git,
+		Git:    NewGitRunner(),
 		Config: cfg,
 	}
 }
