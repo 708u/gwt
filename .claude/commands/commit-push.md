@@ -5,7 +5,7 @@ allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git a
 
 # commit-push
 
-変更内容をConventional Commits形式でコミットし、リモートへプッシュする。
+変更内容をConventional Commits形式でコミットし、リモートへプッシュする。可能な限り1トピックに絞ってcommitする。
 
 ## コンテキスト
 
