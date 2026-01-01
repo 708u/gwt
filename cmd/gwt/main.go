@@ -10,7 +10,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "gwt",
-	Short: "Git worktree helper",
+	Short: "Manage git worktrees and branches together",
 }
 
 var addCmd = &cobra.Command{
