@@ -64,14 +64,18 @@ func LoadConfig(dir string) (*LoadConfigResult, error) {
 		}
 	}
 
-	var destBaseDir string
-	if projCfg != nil && projCfg.WorktreeDestBaseDir != "" {
-		destBaseDir = projCfg.WorktreeDestBaseDir
-	}
-
 	srcDir := dir
 	if projCfg != nil && projCfg.WorktreeSourceDir != "" {
 		srcDir = projCfg.WorktreeSourceDir
+	}
+
+	destBaseDir := ""
+	if projCfg != nil && projCfg.WorktreeDestBaseDir != "" {
+		destBaseDir = projCfg.WorktreeDestBaseDir
+	}
+	if destBaseDir == "" {
+		repoName := filepath.Base(srcDir)
+		destBaseDir = filepath.Join(srcDir, "..", repoName+"-worktree")
 	}
 
 	return &LoadConfigResult{

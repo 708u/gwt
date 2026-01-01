@@ -27,7 +27,7 @@ func TestAddCommand_Run(t *testing.T) {
 		{
 			name:   "new_branch",
 			branch: "feature/test",
-			config: &Config{WorktreeSourceDir: "/repo/main", Symlinks: []string{".envrc"}},
+			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree", Symlinks: []string{".envrc"}},
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{}
@@ -42,7 +42,7 @@ func TestAddCommand_Run(t *testing.T) {
 		{
 			name:   "existing_branch",
 			branch: "existing",
-			config: &Config{WorktreeSourceDir: "/repo/main", Symlinks: []string{".envrc"}},
+			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree", Symlinks: []string{".envrc"}},
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{}
@@ -61,7 +61,7 @@ func TestAddCommand_Run(t *testing.T) {
 		{
 			name:   "directory_exists",
 			branch: "feature/test",
-			config: &Config{WorktreeSourceDir: "/repo/main"},
+			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree"},
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{
@@ -93,7 +93,7 @@ func TestAddCommand_Run(t *testing.T) {
 		{
 			name:   "branch_checked_out",
 			branch: "already-used",
-			config: &Config{WorktreeSourceDir: "/repo/main"},
+			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree"},
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{}
@@ -110,7 +110,7 @@ func TestAddCommand_Run(t *testing.T) {
 		{
 			name:   "worktree_add_error",
 			branch: "feature/test",
-			config: &Config{WorktreeSourceDir: "/repo/main"},
+			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree"},
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{}

@@ -34,23 +34,20 @@ func (c *AddCommand) Run(name string) error {
 		return fmt.Errorf("branch name is required")
 	}
 
-	srcDir := c.Config.WorktreeSourceDir
-	if srcDir == "" {
+	if c.Config.WorktreeSourceDir == "" {
 		return fmt.Errorf("worktree source directory is not configured")
 	}
-
-	destBaseDir := c.Config.WorktreeDestBaseDir
-	if destBaseDir == "" {
-		repoName := filepath.Base(srcDir)
-		destBaseDir = filepath.Join(srcDir, "..", repoName+"-worktree")
+	if c.Config.WorktreeDestBaseDir == "" {
+		return fmt.Errorf("worktree destination base directory is not configured")
 	}
-	wtPath := filepath.Join(destBaseDir, name)
+
+	wtPath := filepath.Join(c.Config.WorktreeDestBaseDir, name)
 
 	if err := c.createWorktree(name, wtPath); err != nil {
 		return err
 	}
 
-	if err := c.createSymlinks(srcDir, wtPath, c.Config.Symlinks); err != nil {
+	if err := c.createSymlinks(c.Config.WorktreeSourceDir, wtPath, c.Config.Symlinks); err != nil {
 		return err
 	}
 

@@ -107,9 +107,10 @@ worktree_destination_base_dir = %q
 			t.Fatal(err)
 		}
 
-		// Verify destBaseDir is empty in config
-		if result.Config.WorktreeDestBaseDir != "" {
-			t.Errorf("expected empty WorktreeDestBaseDir, got %q", result.Config.WorktreeDestBaseDir)
+		// Verify destBaseDir is set to default value
+		expectedDestBaseDir := filepath.Join(repoDir, "main-worktree")
+		if result.Config.WorktreeDestBaseDir != expectedDestBaseDir {
+			t.Errorf("expected WorktreeDestBaseDir %q, got %q", expectedDestBaseDir, result.Config.WorktreeDestBaseDir)
 		}
 
 		var stdout, stderr bytes.Buffer
