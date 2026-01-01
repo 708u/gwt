@@ -13,6 +13,8 @@ func SetupTestRepo(t *testing.T) (repoDir, mainDir string) {
 	t.Helper()
 
 	tmpDir := t.TempDir()
+	// Resolve symlinks for macOS (/var -> /private/var)
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
 	repoDir = filepath.Join(tmpDir, "repo")
 	mainDir = filepath.Join(repoDir, "main")
 
@@ -24,6 +26,7 @@ func SetupTestRepo(t *testing.T) (repoDir, mainDir string) {
 	RunGit(t, mainDir, "config", "user.email", "test@example.com")
 	RunGit(t, mainDir, "config", "user.name", "Test User")
 	RunGit(t, mainDir, "commit", "--allow-empty", "-m", "initial")
+	RunGit(t, mainDir, "branch", "-M", "main")
 
 	return repoDir, mainDir
 }

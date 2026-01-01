@@ -27,7 +27,13 @@ type MockGitExecutor struct {
 	// WorktreeAddErr is returned when worktree add is called.
 	WorktreeAddErr error
 
-	// CapturedArgs captures the args passed to worktree add.
+	// WorktreeRemoveErr is returned when worktree remove is called.
+	WorktreeRemoveErr error
+
+	// BranchDeleteErr is returned when branch -d/-D is called.
+	BranchDeleteErr error
+
+	// CapturedArgs captures the args passed to git commands.
 	CapturedArgs *[]string
 }
 
@@ -53,8 +59,12 @@ func (m *MockGitExecutor) defaultRun(args ...string) ([]byte, error) {
 				return m.handleWorktreeList()
 			case "add":
 				return m.handleWorktreeAdd(args)
+			case "remove":
+				return m.handleWorktreeRemove(args)
 			}
 		}
+	case "branch":
+		return m.handleBranch(args)
 	}
 	return nil, nil
 }
@@ -102,4 +112,22 @@ func (m *MockGitExecutor) handleWorktreeAdd(args []string) ([]byte, error) {
 		*m.CapturedArgs = args
 	}
 	return nil, m.WorktreeAddErr
+}
+
+func (m *MockGitExecutor) handleWorktreeRemove(args []string) ([]byte, error) {
+	if m.CapturedArgs != nil {
+		*m.CapturedArgs = args
+	}
+	return nil, m.WorktreeRemoveErr
+}
+
+func (m *MockGitExecutor) handleBranch(args []string) ([]byte, error) {
+	if m.CapturedArgs != nil {
+		*m.CapturedArgs = args
+	}
+	// args: ["branch", "-d"/"-D", "branch-name"]
+	if len(args) >= 3 && (args[1] == "-d" || args[1] == "-D") {
+		return nil, m.BranchDeleteErr
+	}
+	return nil, nil
 }

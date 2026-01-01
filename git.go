@@ -93,3 +93,104 @@ func (g *GitRunner) WorktreeListBranches() ([]string, error) {
 	}
 	return branches, nil
 }
+
+// WorktreeFindByBranch returns the worktree path for the given branch.
+// Returns an error if the branch is not checked out in any worktree.
+func (g *GitRunner) WorktreeFindByBranch(branch string) (string, error) {
+	out, err := g.Executor.Run("worktree", "list", "--porcelain")
+	if err != nil {
+		return "", fmt.Errorf("failed to list worktrees: %w", err)
+	}
+
+	// porcelain format:
+	// worktree /path/to/worktree
+	// HEAD abc123
+	// branch refs/heads/branch-name
+	// (blank line)
+
+	lines := strings.Split(string(out), "\n")
+	var currentPath string
+	for _, line := range lines {
+		if path, ok := strings.CutPrefix(line, "worktree "); ok {
+			currentPath = path
+		}
+		if branchName, ok := strings.CutPrefix(line, "branch refs/heads/"); ok {
+			if branchName == branch {
+				return currentPath, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("branch %q is not checked out in any worktree", branch)
+}
+
+type worktreeRemoveOptions struct {
+	force bool
+}
+
+// WorktreeRemoveOption is a functional option for WorktreeRemove.
+type WorktreeRemoveOption func(*worktreeRemoveOptions)
+
+// WithForceRemove forces worktree removal even if there are uncommitted changes.
+func WithForceRemove() WorktreeRemoveOption {
+	return func(o *worktreeRemoveOptions) {
+		o.force = true
+	}
+}
+
+// WorktreeRemove removes the worktree at the given path.
+// By default fails if there are uncommitted changes. Use WithForceRemove() to force.
+func (g *GitRunner) WorktreeRemove(path string, opts ...WorktreeRemoveOption) error {
+	var o worktreeRemoveOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	args := []string{"worktree", "remove"}
+	if o.force {
+		args = append(args, "-f")
+	}
+	args = append(args, path)
+
+	out, err := g.Executor.Run(args...)
+	if err != nil {
+		return fmt.Errorf("failed to remove worktree: %w", err)
+	}
+	g.Stdout.Write(out)
+	return nil
+}
+
+type branchDeleteOptions struct {
+	force bool
+}
+
+// BranchDeleteOption is a functional option for BranchDelete.
+type BranchDeleteOption func(*branchDeleteOptions)
+
+// WithForceDelete forces branch deletion even if not fully merged.
+func WithForceDelete() BranchDeleteOption {
+	return func(o *branchDeleteOptions) {
+		o.force = true
+	}
+}
+
+// BranchDelete deletes a local branch.
+// By default uses -d (safe delete). Use WithForceDelete() to use -D (force delete).
+func (g *GitRunner) BranchDelete(branch string, opts ...BranchDeleteOption) error {
+	var o branchDeleteOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	flag := "-d"
+	if o.force {
+		flag = "-D"
+	}
+
+	out, err := g.Executor.Run("branch", flag, branch)
+	if err != nil {
+		return fmt.Errorf("failed to delete branch: %w", err)
+	}
+	g.Stdout.Write(out)
+	return nil
+}
