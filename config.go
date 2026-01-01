@@ -14,7 +14,8 @@ const (
 )
 
 type Config struct {
-	Include []string `toml:"include"`
+	Include         []string `toml:"include"`
+	WorktreeBaseDir string   `toml:"worktree_base_dir"`
 }
 
 func LoadConfig(dir string) (*Config, error) {
@@ -47,7 +48,18 @@ func LoadConfig(dir string) (*Config, error) {
 		}
 	}
 
-	return &Config{Include: includes}, nil
+	var worktreeBaseDir string
+	if projCfg != nil && projCfg.WorktreeBaseDir != "" {
+		worktreeBaseDir = projCfg.WorktreeBaseDir
+	}
+	if localCfg != nil && localCfg.WorktreeBaseDir != "" {
+		worktreeBaseDir = localCfg.WorktreeBaseDir
+	}
+
+	return &Config{
+		Include:         includes,
+		WorktreeBaseDir: worktreeBaseDir,
+	}, nil
 }
 
 func loadConfigFile(path string) (*Config, error) {

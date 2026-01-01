@@ -36,10 +36,12 @@ func (c *AddCommand) Run(name string) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// TODO: pathについて考える
 	dirName := strings.ReplaceAll(name, "/", "-")
-	// TODO: configから取るようにするか考える
-	wtPath := filepath.Join(cwd, "..", dirName)
+	baseDir := c.Config.WorktreeBaseDir
+	if baseDir == "" {
+		baseDir = filepath.Join(cwd, "..")
+	}
+	wtPath := filepath.Join(baseDir, dirName)
 
 	if err := c.createWorktree(name, wtPath); err != nil {
 		return err
