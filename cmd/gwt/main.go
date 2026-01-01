@@ -100,8 +100,11 @@ var addCmd = &cobra.Command{
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		verbose, _ := cmd.Flags().GetBool("verbose")
+		sync, _ := cmd.Flags().GetBool("sync")
 
-		result, err := gwt.NewAddCommand(cfg).Run(args[0])
+		addCmd := gwt.NewAddCommand(cfg)
+		addCmd.Sync = sync
+		result, err := addCmd.Run(args[0])
 		if err != nil {
 			return err
 		}
@@ -164,6 +167,8 @@ Use --force to override these checks.`,
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&dirFlag, "directory", "C", "", "Run as if gwt was started in <path>")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+
+	addCmd.Flags().BoolP("sync", "s", false, "Sync uncommitted changes to new worktree")
 	rootCmd.AddCommand(addCmd)
 
 	removeCmd.Flags().BoolP("force", "f", false, "Force removal even with uncommitted changes or unmerged branch")
