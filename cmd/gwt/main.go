@@ -116,6 +116,24 @@ var addCmd = &cobra.Command{
 	},
 }
 
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all worktrees",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		showPath, _ := cmd.Flags().GetBool("path")
+
+		result, err := gwt.NewListCommand(cwd).Run()
+		if err != nil {
+			return err
+		}
+
+		formatted := result.Format(gwt.ListFormatOptions{ShowPath: showPath})
+		fmt.Fprint(os.Stdout, formatted.Stdout)
+		return nil
+	},
+}
+
 var removeCmd = &cobra.Command{
 	Use:   "remove <branch>...",
 	Short: "Remove worktrees and their branches",
@@ -184,6 +202,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&dirFlag, "directory", "C", "", "Run as if gwt was started in <path>")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 	rootCmd.AddCommand(addCmd)
+
+	listCmd.Flags().BoolP("path", "p", false, "Show full paths instead of branch names")
+	rootCmd.AddCommand(listCmd)
 
 	removeCmd.Flags().BoolP("force", "f", false, "Force removal even with uncommitted changes or unmerged branch")
 	removeCmd.Flags().Bool("dry-run", false, "Show what would be removed without making changes")
