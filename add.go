@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 )
 
 // AddCommand creates git worktrees with symlinks.
@@ -40,12 +39,12 @@ func (c *AddCommand) Run(name string) error {
 		}
 	}
 
-	dirName := strings.ReplaceAll(name, "/", "-")
 	destBaseDir := c.Config.WorktreeDestBaseDir
 	if destBaseDir == "" {
-		destBaseDir = filepath.Join(srcDir, "..")
+		repoName := filepath.Base(srcDir)
+		destBaseDir = filepath.Join(srcDir, "..", repoName+"-worktree")
 	}
-	wtPath := filepath.Join(destBaseDir, dirName)
+	wtPath := filepath.Join(destBaseDir, name)
 
 	if err := c.createWorktree(name, wtPath); err != nil {
 		return err

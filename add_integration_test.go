@@ -56,7 +56,7 @@ worktree_destination_base_dir = %q
 			t.Fatalf("Run failed: %v", err)
 		}
 
-		wtPath := filepath.Join(repoDir, "feature-test")
+		wtPath := filepath.Join(repoDir, "feature", "test")
 		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
 			t.Errorf("worktree directory does not exist: %s", wtPath)
 		}
@@ -80,8 +80,8 @@ worktree_destination_base_dir = %q
 		}
 
 		out := testutil.RunGit(t, mainDir, "worktree", "list")
-		if !strings.Contains(out, "feature-test") {
-			t.Errorf("worktree list does not contain feature-test: %s", out)
+		if !strings.Contains(out, "feature/test") {
+			t.Errorf("worktree list does not contain feature/test: %s", out)
 		}
 	})
 
@@ -126,15 +126,15 @@ worktree_destination_base_dir = %q
 			t.Fatalf("Run failed: %v", err)
 		}
 
-		// Worktree should be created in parent of srcDir (mainDir)
-		expectedPath := filepath.Join(repoDir, "feature-default-dest")
+		// Worktree should be created in ${repoName}-worktree/${branch}
+		expectedPath := filepath.Join(repoDir, "main-worktree", "feature", "default-dest")
 		if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
 			t.Errorf("worktree not created at expected path: %s", expectedPath)
 		}
 
 		out := testutil.RunGit(t, mainDir, "worktree", "list")
-		if !strings.Contains(out, "feature-default-dest") {
-			t.Errorf("worktree list does not contain feature-default-dest: %s", out)
+		if !strings.Contains(out, "feature/default-dest") {
+			t.Errorf("worktree list does not contain feature/default-dest: %s", out)
 		}
 	})
 
@@ -282,7 +282,7 @@ worktree_destination_base_dir = %q
 			t.Fatalf("Run failed: %v", err)
 		}
 
-		wtPath := filepath.Join(repoDir, "feature-local-merge")
+		wtPath := filepath.Join(repoDir, "feature", "local-merge")
 
 		// Verify both files are symlinked
 		for _, rel := range []string{".envrc", ".tool-versions"} {
@@ -352,7 +352,7 @@ worktree_destination_base_dir = %q
 		}
 
 		// Verify worktree was created successfully
-		wtPath := filepath.Join(repoDir, "feature-warn-test")
+		wtPath := filepath.Join(repoDir, "feature", "warn-test")
 		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
 			t.Errorf("worktree directory does not exist: %s", wtPath)
 		}
@@ -433,7 +433,7 @@ worktree_destination_base_dir = %q
 			t.Fatalf("Run failed: %v", err)
 		}
 
-		wtPath := filepath.Join(repoDir, "feature-glob-test")
+		wtPath := filepath.Join(repoDir, "feature", "glob-test")
 
 		// Verify symlinks created for glob matches
 		for _, rel := range matchFiles {

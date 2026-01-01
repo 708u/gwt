@@ -65,7 +65,7 @@ func TestAddCommand_Run(t *testing.T) {
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{
-					ExistingPaths: []string{"/repo/feature-test"},
+					ExistingPaths: []string{"/repo/main-worktree/feature/test"},
 				}
 			},
 			setupGit: func(t *testing.T, captured *[]string) *testutil.MockGitExecutor {
@@ -130,7 +130,7 @@ func TestAddCommand_Run(t *testing.T) {
 			name:      "slash_in_branch_name",
 			branch:    "feature/foo",
 			config:    &Config{WorktreeDestBaseDir: "/worktrees"},
-			checkPath: "/worktrees/feature-foo",
+			checkPath: "/worktrees/feature/foo",
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{}
