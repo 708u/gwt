@@ -292,6 +292,108 @@ func TestAddCommand_Run(t *testing.T) {
 	}
 }
 
+func TestAddResult_Format(t *testing.T) {
+	t.Parallel()
+
+	result := AddResult{
+		Branch:       "feature/test",
+		WorktreePath: "/worktrees/feature/test",
+		Symlinks: []SymlinkResult{
+			{Src: "/repo/.envrc", Dst: "/worktrees/feature/test/.envrc"},
+		},
+		ChangesSynced: false,
+	}
+
+	tests := []struct {
+		name       string
+		opts       AddFormatOptions
+		wantStdout string
+		wantStderr string
+	}{
+		{
+			name:       "default_output",
+			opts:       AddFormatOptions{},
+			wantStdout: "gwt add: feature/test (1 symlinks)\n",
+			wantStderr: "",
+		},
+		{
+			name:       "print_path",
+			opts:       AddFormatOptions{Print: []string{"path"}},
+			wantStdout: "/worktrees/feature/test\n",
+			wantStderr: "",
+		},
+		{
+			name:       "print_ignores_verbose",
+			opts:       AddFormatOptions{Verbose: true, Print: []string{"path"}},
+			wantStdout: "/worktrees/feature/test\n",
+			wantStderr: "",
+		},
+		{
+			name:       "verbose_output",
+			opts:       AddFormatOptions{Verbose: true},
+			wantStdout: "Created worktree at /worktrees/feature/test\nCreated symlink: /worktrees/feature/test/.envrc -> /repo/.envrc\ngwt add: feature/test (1 symlinks)\n",
+			wantStderr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := result.Format(tt.opts)
+
+			if got.Stdout != tt.wantStdout {
+				t.Errorf("Stdout = %q, want %q", got.Stdout, tt.wantStdout)
+			}
+			if got.Stderr != tt.wantStderr {
+				t.Errorf("Stderr = %q, want %q", got.Stderr, tt.wantStderr)
+			}
+		})
+	}
+}
+
+func TestValidatePrintFields(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		fields  []string
+		wantErr bool
+	}{
+		{
+			name:    "valid_path",
+			fields:  []string{"path"},
+			wantErr: false,
+		},
+		{
+			name:    "empty",
+			fields:  []string{},
+			wantErr: false,
+		},
+		{
+			name:    "invalid_field",
+			fields:  []string{"invalid"},
+			wantErr: true,
+		},
+		{
+			name:    "valid_and_invalid",
+			fields:  []string{"path", "invalid"},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidatePrintFields(tt.fields)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidatePrintFields() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestAddCommand_createSymlinks(t *testing.T) {
 	t.Parallel()
 

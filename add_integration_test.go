@@ -585,4 +585,56 @@ worktree_destination_base_dir = %q
 			t.Errorf("worktree directory does not exist: %s", wtPath)
 		}
 	})
+
+	t.Run("PrintPathOutputsOnlyPath", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		gwtDir := filepath.Join(mainDir, ".gwt")
+		if err := os.MkdirAll(gwtDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		settingsContent := fmt.Sprintf(`worktree_source_dir = %q
+worktree_destination_base_dir = %q
+`, mainDir, repoDir)
+		if err := os.WriteFile(filepath.Join(gwtDir, "settings.toml"), []byte(settingsContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := &AddCommand{
+			FS:     osFS{},
+			Git:    NewGitRunner(mainDir),
+			Config: result.Config,
+		}
+
+		addResult, err := cmd.Run("feature/print-test")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		// Verify worktree path matches expected
+		wtPath := filepath.Join(repoDir, "feature", "print-test")
+		if addResult.WorktreePath != wtPath {
+			t.Errorf("WorktreePath = %q, want %q", addResult.WorktreePath, wtPath)
+		}
+
+		// Verify Format with Print option outputs only path
+		formatted := addResult.Format(AddFormatOptions{Print: []string{"path"}})
+		expectedOutput := wtPath + "\n"
+		if formatted.Stdout != expectedOutput {
+			t.Errorf("Format(Print: path) = %q, want %q", formatted.Stdout, expectedOutput)
+		}
+
+		// Verify the path is a valid directory
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Errorf("worktree directory does not exist: %s", wtPath)
+		}
+	})
 }
