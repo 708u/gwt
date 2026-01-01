@@ -16,7 +16,6 @@ import (
 func TestAddCommand_Integration(t *testing.T) {
 	t.Parallel()
 
-	// 他の正常ケースも探索
 	t.Run("FullWorkflow", func(t *testing.T) {
 		t.Parallel()
 
