@@ -243,6 +243,21 @@ func TestAddCommand_createSymlinks(t *testing.T) {
 			wantErr:     true,
 			errContains: "failed to create symlink",
 		},
+		{
+			name:    "destination_already_exists",
+			targets: []string{".claude"},
+			setupFS: func(t *testing.T) *testutil.MockFS {
+				t.Helper()
+				return &testutil.MockFS{
+					GlobResults: map[string][]string{
+						".claude": {".claude"},
+					},
+					ExistingPaths: []string{"/dst/.claude"},
+				}
+			},
+			wantErr:    false,
+			wantStderr: "Warning: skipping symlink for .claude (already exists)",
+		},
 	}
 
 	for _, tt := range tests {

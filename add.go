@@ -95,6 +95,12 @@ func (c *AddCommand) createSymlinks(srcDir, dstDir string, patterns []string) er
 			src := filepath.Join(srcDir, match)
 			dst := filepath.Join(dstDir, match)
 
+			// Skip if destination already exists (e.g., git-tracked file checked out by worktree).
+			if _, err := c.FS.Stat(dst); err == nil {
+				fmt.Fprintf(c.Stderr, "Warning: skipping symlink for %s (already exists)\n", match)
+				continue
+			}
+
 			if dir := filepath.Dir(dst); dir != dstDir {
 				if err := c.FS.MkdirAll(dir, 0755); err != nil {
 					return fmt.Errorf("failed to create directory for %s: %w", match, err)
