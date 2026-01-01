@@ -62,9 +62,9 @@ func (g *GitRunner) WorktreeAdd(path, branch string, opts ...WorktreeAddOption) 
 	var output []byte
 	var err error
 	if o.createBranch {
-		output, err = g.Executor.Run("worktree", "add", "-b", branch, path)
+		output, err = g.worktreeAddWithNewBranch(branch, path)
 	} else {
-		output, err = g.Executor.Run("worktree", "add", path, branch)
+		output, err = g.worktreeAdd(path, branch)
 	}
 	if len(output) > 0 {
 		fmt.Fprint(g.Stdout, string(output))
@@ -80,7 +80,7 @@ func (g *GitRunner) BranchExists(branch string) bool {
 
 // WorktreeListBranches returns a list of branch names currently checked out in worktrees.
 func (g *GitRunner) WorktreeListBranches() ([]string, error) {
-	output, err := g.Executor.Run("worktree", "list", "--porcelain")
+	output, err := g.worktreeListPorcelain()
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (g *GitRunner) WorktreeListBranches() ([]string, error) {
 // WorktreeFindByBranch returns the worktree path for the given branch.
 // Returns an error if the branch is not checked out in any worktree.
 func (g *GitRunner) WorktreeFindByBranch(branch string) (string, error) {
-	out, err := g.Executor.Run("worktree", "list", "--porcelain")
+	out, err := g.worktreeListPorcelain()
 	if err != nil {
 		return "", fmt.Errorf("failed to list worktrees: %w", err)
 	}
@@ -146,13 +146,7 @@ func (g *GitRunner) WorktreeRemove(path string, opts ...WorktreeRemoveOption) er
 		opt(&o)
 	}
 
-	args := []string{"worktree", "remove"}
-	if o.force {
-		args = append(args, "-f")
-	}
-	args = append(args, path)
-
-	out, err := g.Executor.Run(args...)
+	out, err := g.worktreeRemove(path, o.force)
 	if err != nil {
 		return fmt.Errorf("failed to remove worktree: %w", err)
 	}
@@ -182,15 +176,41 @@ func (g *GitRunner) BranchDelete(branch string, opts ...BranchDeleteOption) erro
 		opt(&o)
 	}
 
-	flag := "-d"
-	if o.force {
-		flag = "-D"
-	}
-
-	out, err := g.Executor.Run("branch", flag, branch)
+	out, err := g.branchDelete(branch, o.force)
 	if err != nil {
 		return fmt.Errorf("failed to delete branch: %w", err)
 	}
 	g.Stdout.Write(out)
 	return nil
+}
+
+// private methods for git command execution
+
+func (g *GitRunner) worktreeAdd(path, branch string) ([]byte, error) {
+	return g.Executor.Run("worktree", "add", path, branch)
+}
+
+func (g *GitRunner) worktreeAddWithNewBranch(branch, path string) ([]byte, error) {
+	return g.Executor.Run("worktree", "add", "-b", branch, path)
+}
+
+func (g *GitRunner) worktreeListPorcelain() ([]byte, error) {
+	return g.Executor.Run("worktree", "list", "--porcelain")
+}
+
+func (g *GitRunner) worktreeRemove(path string, force bool) ([]byte, error) {
+	args := []string{"worktree", "remove"}
+	if force {
+		args = append(args, "-f")
+	}
+	args = append(args, path)
+	return g.Executor.Run(args...)
+}
+
+func (g *GitRunner) branchDelete(branch string, force bool) ([]byte, error) {
+	flag := "-d"
+	if force {
+		flag = "-D"
+	}
+	return g.Executor.Run("branch", flag, branch)
 }
