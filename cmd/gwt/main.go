@@ -43,6 +43,15 @@ func resolveDirectory(dirFlag, baseCwd string) (string, error) {
 	return resolved, nil
 }
 
+func resolveCompletionDirectory(cmd *cobra.Command) (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	dirFlag, _ := cmd.Root().PersistentFlags().GetString("directory")
+	return resolveDirectory(dirFlag, cwd)
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "gwt",
 	Short: "Manage git worktrees and branches together",
@@ -74,6 +83,21 @@ var addCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Create a new worktree with a new branch",
 	Args:  cobra.ExactArgs(1),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) >= 1 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		dir, err := resolveCompletionDirectory(cmd)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		git := gwt.NewGitRunner(dir)
+		branches, err := git.BranchList()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		return branches, cobra.ShellCompDirectiveNoFileComp
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return gwt.NewAddCommand(cfg).Run(args[0])
 	},
@@ -88,6 +112,21 @@ The branch name is used to locate the worktree.
 By default, fails if there are uncommitted changes or the branch is not merged.
 Use --force to override these checks.`,
 	Args: cobra.ExactArgs(1),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) >= 1 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		dir, err := resolveCompletionDirectory(cmd)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		git := gwt.NewGitRunner(dir)
+		branches, err := git.WorktreeListBranches()
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		return branches, cobra.ShellCompDirectiveNoFileComp
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		force, _ := cmd.Flags().GetBool("force")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
