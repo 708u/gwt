@@ -8,18 +8,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TODO: config呼び出しの共通化
+var (
+	cfg *gwt.Config
+	cwd string
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "gwt",
 	Short: "Manage git worktrees and branches together",
-}
-
-var addCmd = &cobra.Command{
-	Use:   "add <name>",
-	Short: "Create a new worktree with a new branch",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cwd, err := os.Getwd()
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		var err error
+		cwd, err = os.Getwd()
 		if err != nil {
 			return fmt.Errorf("failed to get current directory: %w", err)
 		}
@@ -31,8 +30,17 @@ var addCmd = &cobra.Command{
 		for _, w := range result.Warnings {
 			fmt.Fprintln(os.Stderr, "warning:", w)
 		}
+		cfg = result.Config
+		return nil
+	},
+}
 
-		return gwt.NewAddCommand(result.Config).Run(args[0])
+var addCmd = &cobra.Command{
+	Use:   "add <name>",
+	Short: "Create a new worktree with a new branch",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return gwt.NewAddCommand(cfg).Run(args[0])
 	},
 }
 
@@ -49,20 +57,7 @@ Use --force to override these checks.`,
 		force, _ := cmd.Flags().GetBool("force")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-		cwd, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get current directory: %w", err)
-		}
-
-		result, err := gwt.LoadConfig(cwd)
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
-		}
-		for _, w := range result.Warnings {
-			fmt.Fprintln(os.Stderr, "warning:", w)
-		}
-
-		return gwt.NewRemoveCommand(result.Config).Run(args[0], cwd, gwt.RemoveOptions{
+		return gwt.NewRemoveCommand(cfg).Run(args[0], cwd, gwt.RemoveOptions{
 			Force:  force,
 			DryRun: dryRun,
 		})
