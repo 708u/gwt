@@ -43,6 +43,15 @@ func resolveDirectory(dirFlag, baseCwd string) (string, error) {
 	return resolved, nil
 }
 
+func resolveCompletionDirectory(cmd *cobra.Command) (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	dirFlag, _ := cmd.Root().PersistentFlags().GetString("directory")
+	return resolveDirectory(dirFlag, cwd)
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "gwt",
 	Short: "Manage git worktrees and branches together",
@@ -78,11 +87,11 @@ var addCmd = &cobra.Command{
 		if len(args) >= 1 {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		cwd, err := os.Getwd()
+		dir, err := resolveCompletionDirectory(cmd)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveError
 		}
-		git := gwt.NewGitRunner(cwd)
+		git := gwt.NewGitRunner(dir)
 		branches, err := git.BranchList()
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveError
@@ -107,11 +116,11 @@ Use --force to override these checks.`,
 		if len(args) >= 1 {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		cwd, err := os.Getwd()
+		dir, err := resolveCompletionDirectory(cmd)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveError
 		}
-		git := gwt.NewGitRunner(cwd)
+		git := gwt.NewGitRunner(dir)
 		branches, err := git.WorktreeListBranches()
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveError
