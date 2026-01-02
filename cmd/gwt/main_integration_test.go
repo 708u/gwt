@@ -204,6 +204,12 @@ default_source = "main"
 
 		featAPath := filepath.Join(repoDir, "feat", "a")
 
+		// Create a file unique to feat/a (not in symlinks, not in main)
+		featAOnlyFile := filepath.Join(featAPath, "feat-a-only.txt")
+		if err := os.WriteFile(featAOnlyFile, []byte("only in feat/a"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
 		// Load config from feat/a - it should have default_source = "main"
 		resultFeatA, err := gwt.LoadConfig(featAPath)
 		if err != nil {
@@ -242,7 +248,7 @@ default_source = "main"
 			t.Errorf("worktree directory does not exist: %s", featBPath)
 		}
 
-		// Verify symlink points to main
+		// Verify symlink points to main, not feat/a
 		envrcPath := filepath.Join(featBPath, ".envrc")
 		target, err := os.Readlink(envrcPath)
 		if err != nil {
@@ -251,6 +257,13 @@ default_source = "main"
 		expectedTarget := filepath.Join(mainDir, ".envrc")
 		if target != expectedTarget {
 			t.Errorf("symlink target = %q, want %q", target, expectedTarget)
+		}
+
+		// Verify feat/b does NOT have feat-a-only.txt
+		// (created from main, not feat/a)
+		featBOnlyFile := filepath.Join(featBPath, "feat-a-only.txt")
+		if _, err := os.Stat(featBOnlyFile); !os.IsNotExist(err) {
+			t.Errorf("feat-a-only.txt should NOT exist in feat/b (created from main)")
 		}
 	})
 
