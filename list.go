@@ -21,25 +21,44 @@ type ListResult struct {
 	Worktrees []WorktreeInfo
 }
 
-// ListFormatOptions configures list output formatting.
-type ListFormatOptions struct {
-	ShowPath bool
-}
-
-// Format formats the ListResult for display.
-func (r ListResult) Format(opts ListFormatOptions) FormatResult {
+// Format formats the ListResult for display in git worktree list compatible format.
+func (r ListResult) Format() FormatResult {
 	var stdout strings.Builder
 
 	for _, wt := range r.Worktrees {
-		if opts.ShowPath {
-			stdout.WriteString(wt.Path)
-		} else {
-			stdout.WriteString(wt.Branch)
-		}
+		stdout.WriteString(wt.formatLine())
 		stdout.WriteString("\n")
 	}
 
 	return FormatResult{Stdout: stdout.String()}
+}
+
+// formatLine returns git worktree list compatible format for a single worktree.
+func (w WorktreeInfo) formatLine() string {
+	var sb strings.Builder
+	sb.WriteString(w.Path)
+	sb.WriteString("  ")
+	sb.WriteString(w.ShortHEAD())
+	sb.WriteString(" ")
+
+	if w.Bare {
+		sb.WriteString("(bare)")
+	} else if w.Detached {
+		sb.WriteString("(detached HEAD)")
+	} else {
+		sb.WriteString("[")
+		sb.WriteString(w.Branch)
+		sb.WriteString("]")
+	}
+
+	if w.Locked {
+		sb.WriteString(" locked")
+	}
+	if w.Prunable {
+		sb.WriteString(" prunable")
+	}
+
+	return sb.String()
 }
 
 // Run lists all worktrees.

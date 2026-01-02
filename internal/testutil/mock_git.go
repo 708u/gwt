@@ -8,9 +8,15 @@ import (
 
 // MockWorktree represents a worktree entry for testing.
 type MockWorktree struct {
-	Path   string
-	Branch string
-	HEAD   string
+	Path           string
+	Branch         string
+	HEAD           string
+	Detached       bool
+	Locked         bool
+	LockReason     string
+	Prunable       bool
+	PrunableReason string
+	Bare           bool
 }
 
 // MockGitExecutor is a mock implementation of gwt.GitExecutor for testing.
@@ -118,11 +124,31 @@ func (m *MockGitExecutor) handleWorktreeList() ([]byte, error) {
 	for _, wt := range m.Worktrees {
 		head := wt.HEAD
 		if head == "" {
-			head = "abc123"
+			head = "abc1234567890"
 		}
 		lines = append(lines, "worktree "+wt.Path)
 		lines = append(lines, "HEAD "+head)
-		lines = append(lines, "branch refs/heads/"+wt.Branch)
+		if wt.Bare {
+			lines = append(lines, "bare")
+		} else if wt.Detached {
+			lines = append(lines, "detached")
+		} else {
+			lines = append(lines, "branch refs/heads/"+wt.Branch)
+		}
+		if wt.Locked {
+			if wt.LockReason != "" {
+				lines = append(lines, "locked "+wt.LockReason)
+			} else {
+				lines = append(lines, "locked")
+			}
+		}
+		if wt.Prunable {
+			if wt.PrunableReason != "" {
+				lines = append(lines, "prunable "+wt.PrunableReason)
+			} else {
+				lines = append(lines, "prunable")
+			}
+		}
 		lines = append(lines, "")
 	}
 	return []byte(strings.Join(lines, "\n")), nil

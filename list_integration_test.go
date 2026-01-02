@@ -5,6 +5,7 @@ package gwt
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/708u/gwt/internal/testutil"
@@ -77,7 +78,7 @@ func TestListCommand_Integration(t *testing.T) {
 		}
 	})
 
-	t.Run("FormatWithPath", func(t *testing.T) {
+	t.Run("FormatGitWorktreeListCompatible", func(t *testing.T) {
 		t.Parallel()
 
 		repoDir, mainDir := testutil.SetupTestRepo(t)
@@ -91,18 +92,47 @@ func TestListCommand_Integration(t *testing.T) {
 			t.Fatalf("Run failed: %v", err)
 		}
 
-		// Format with path
-		formatted := result.Format(ListFormatOptions{ShowPath: true})
+		formatted := result.Format()
 
-		// Should contain full paths
+		// Should contain full paths and branch names
 		if formatted.Stdout == "" {
 			t.Error("formatted output should not be empty")
+		}
+
+		// Verify format contains path, hash, and branch
+		lines := strings.Split(strings.TrimSpace(formatted.Stdout), "\n")
+		for _, line := range lines {
+			// Format: /path/to/worktree  abc1234 [branch]
+			if !strings.Contains(line, "[") || !strings.Contains(line, "]") {
+				t.Errorf("line should contain branch in brackets: %s", line)
+			}
 		}
 
 		// Verify paths are absolute
 		for _, wt := range result.Worktrees {
 			if !filepath.IsAbs(wt.Path) {
 				t.Errorf("path should be absolute: %s", wt.Path)
+			}
+		}
+	})
+
+	t.Run("WorktreeInfoHasHEAD", func(t *testing.T) {
+		t.Parallel()
+
+		_, mainDir := testutil.SetupTestRepo(t)
+
+		cmd := NewListCommand(mainDir)
+		result, err := cmd.Run()
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		for _, wt := range result.Worktrees {
+			if wt.HEAD == "" {
+				t.Error("HEAD should not be empty")
+			}
+			if len(wt.HEAD) != 40 {
+				t.Errorf("HEAD should be 40 characters, got %d: %s", len(wt.HEAD), wt.HEAD)
 			}
 		}
 	})

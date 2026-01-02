@@ -93,8 +93,23 @@ func (g *GitRunner) BranchList() ([]string, error) {
 
 // WorktreeInfo holds worktree path and branch information.
 type WorktreeInfo struct {
-	Path   string
-	Branch string
+	Path           string
+	Branch         string
+	HEAD           string
+	Detached       bool
+	Locked         bool
+	LockReason     string
+	Prunable       bool
+	PrunableReason string
+	Bare           bool
+}
+
+// ShortHEAD returns the first 7 characters of the HEAD commit hash.
+func (w WorktreeInfo) ShortHEAD() string {
+	if len(w.HEAD) >= 7 {
+		return w.HEAD[:7]
+	}
+	return w.HEAD
 }
 
 // WorktreeList returns all worktrees with their paths and branches.
@@ -108,16 +123,37 @@ func (g *GitRunner) WorktreeList() ([]WorktreeInfo, error) {
 	// worktree /path/to/worktree
 	// HEAD abc123
 	// branch refs/heads/branch-name
+	// detached (optional)
+	// bare (optional)
+	// locked [reason] (optional)
+	// prunable [reason] (optional)
 	// (blank line)
 
 	var worktrees []WorktreeInfo
 	var current WorktreeInfo
 	for _, line := range strings.Split(string(out), "\n") {
-		if path, ok := strings.CutPrefix(line, "worktree "); ok {
-			current = WorktreeInfo{Path: path}
-		} else if branch, ok := strings.CutPrefix(line, "branch refs/heads/"); ok {
-			current.Branch = branch
-		} else if line == "" && current.Path != "" {
+		switch {
+		case strings.HasPrefix(line, "worktree "):
+			current = WorktreeInfo{Path: strings.TrimPrefix(line, "worktree ")}
+		case strings.HasPrefix(line, "HEAD "):
+			current.HEAD = strings.TrimPrefix(line, "HEAD ")
+		case strings.HasPrefix(line, "branch refs/heads/"):
+			current.Branch = strings.TrimPrefix(line, "branch refs/heads/")
+		case line == "detached":
+			current.Detached = true
+		case line == "bare":
+			current.Bare = true
+		case strings.HasPrefix(line, "locked"):
+			current.Locked = true
+			if reason, ok := strings.CutPrefix(line, "locked "); ok {
+				current.LockReason = reason
+			}
+		case strings.HasPrefix(line, "prunable"):
+			current.Prunable = true
+			if reason, ok := strings.CutPrefix(line, "prunable "); ok {
+				current.PrunableReason = reason
+			}
+		case line == "" && current.Path != "":
 			worktrees = append(worktrees, current)
 			current = WorktreeInfo{}
 		}

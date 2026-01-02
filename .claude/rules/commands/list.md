@@ -1,39 +1,33 @@
 # list subcommand
 
-List all worktrees.
+List all worktrees in `git worktree list` compatible format.
 
 ## Usage
 
 ```txt
-gwt list [flags]
+gwt list
 ```
-
-## Flags
-
-| Flag     | Short | Description                              |
-|----------|-------|------------------------------------------|
-| `--path` | `-p`  | Show full paths instead of branch names  |
 
 ## Behavior
 
 - Lists all worktrees including the main worktree
-- Default output shows branch names only
-- With `--path`: shows full filesystem paths
+- Output format is compatible with `git worktree list`
+- Shows path, short commit hash, and branch name for each worktree
+- Displays additional status: locked, prunable, detached HEAD
 
 ## Examples
 
 ```txt
-# List branch names
 gwt list
-main
-feat/add-list-command
-feat/add-move-command
+/Users/user/repo                                   d9ef543 [main]
+/Users/user/repo-worktree/feat/add-list-command    abc1234 [feat/add-list-command]
+/Users/user/repo-worktree/feat/add-move-command    def5678 [feat/add-move-command]
 
-# List full paths (for cd integration)
-gwt list --path
-/Users/user/repo
-/Users/user/repo-worktree/feat/add-list-command
-/Users/user/repo-worktree/feat/add-move-command
+# Detached HEAD example
+/Users/user/repo-worktree/detached                 1234abc (detached HEAD)
+
+# Locked worktree example
+/Users/user/repo-worktree/locked                   5678def [locked-branch] locked
 ```
 
 ## Shell Integration
@@ -43,7 +37,7 @@ Combine with fzf for quick worktree navigation:
 ```bash
 gcd() {
   local selected
-  selected=$(gwt list --path | fzf +m) &&
+  selected=$(gwt list | awk '{print $1}' | fzf +m) &&
   cd "$selected"
 }
 ```
