@@ -101,6 +101,13 @@ var addCmd = &cobra.Command{
 	},
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		source, _ := cmd.Flags().GetString("source")
+
+		// Apply default_source if CLI --source is not specified
+		// Skip if -C is specified (use the directory as-is)
+		if source == "" && dirFlag == "" && cfg.DefaultSource != "" {
+			source = cfg.DefaultSource
+		}
+
 		if source == "" {
 			return nil
 		}
