@@ -47,10 +47,14 @@ worktree_destination_base_dir = %q
 			Config: result.Config,
 		}
 
-		addResult, err := cmd.Run("feature/test")
+		batchResult, err := cmd.Run([]string{"feature/test"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
+		}
+		addResult := batchResult.Added[0].AddResult
 
 		wtPath := filepath.Join(repoDir, "feature", "test")
 		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
@@ -123,9 +127,12 @@ worktree_destination_base_dir = %q
 			Config: result.Config,
 		}
 
-		_, err = cmd.Run("feature/default-dest")
+		batchResult, err := cmd.Run([]string{"feature/default-dest"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
+		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
 		}
 
 		// Worktree should be created in ${repoName}-worktree/${branch}
@@ -170,9 +177,12 @@ worktree_destination_base_dir = %q
 			Config: result.Config,
 		}
 
-		_, err = cmd.Run("existing-branch")
+		batchResult, err := cmd.Run([]string{"existing-branch"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
+		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
 		}
 
 		wtPath := filepath.Join(repoDir, "existing-branch")
@@ -211,12 +221,16 @@ worktree_destination_base_dir = %q
 			Config: result.Config,
 		}
 
-		_, err = cmd.Run("test-branch")
-		if err == nil {
-			t.Fatal("expected error, got nil")
+		batchResult, err := cmd.Run([]string{"test-branch"})
+		if err != nil {
+			t.Fatalf("unexpected batch error: %v", err)
 		}
-		if !strings.Contains(err.Error(), "already checked out") {
-			t.Errorf("error %q should contain 'already checked out'", err.Error())
+		if !batchResult.HasErrors() {
+			t.Fatal("expected error, got none")
+		}
+		itemErr := batchResult.Added[0].Err
+		if !strings.Contains(itemErr.Error(), "already checked out") {
+			t.Errorf("error %q should contain 'already checked out'", itemErr.Error())
 		}
 	})
 
@@ -270,9 +284,12 @@ worktree_destination_base_dir = %q
 			Config: result.Config,
 		}
 
-		_, err = cmd.Run("feature/local-merge")
+		batchResult, err := cmd.Run([]string{"feature/local-merge"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
+		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
 		}
 
 		wtPath := filepath.Join(repoDir, "feature", "local-merge")
@@ -336,10 +353,14 @@ worktree_destination_base_dir = %q
 			Config: result.Config,
 		}
 
-		addResult, err := cmd.Run("feature/warn-test")
+		batchResult, err := cmd.Run([]string{"feature/warn-test"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
+		}
+		addResult := batchResult.Added[0].AddResult
 
 		// Verify worktree was created successfully
 		wtPath := filepath.Join(repoDir, "feature", "warn-test")
@@ -422,9 +443,12 @@ worktree_destination_base_dir = %q
 			Config: result.Config,
 		}
 
-		_, err = cmd.Run("feature/glob-test")
+		batchResult, err := cmd.Run([]string{"feature/glob-test"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
+		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
 		}
 
 		wtPath := filepath.Join(repoDir, "feature", "glob-test")
@@ -500,10 +524,14 @@ worktree_destination_base_dir = %q
 			Sync:   true,
 		}
 
-		addResult, err := cmd.Run("feature/sync-test")
+		batchResult, err := cmd.Run([]string{"feature/sync-test"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
+		}
+		addResult := batchResult.Added[0].AddResult
 
 		// Verify ChangesSynced is true
 		if !addResult.ChangesSynced {
@@ -569,10 +597,14 @@ worktree_destination_base_dir = %q
 			Sync:   true,
 		}
 
-		addResult, err := cmd.Run("feature/no-changes")
+		batchResult, err := cmd.Run([]string{"feature/no-changes"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
+		}
+		addResult := batchResult.Added[0].AddResult
 
 		// Verify ChangesSynced is false (no changes to sync)
 		if addResult.ChangesSynced {
@@ -614,10 +646,14 @@ worktree_destination_base_dir = %q
 			Config: result.Config,
 		}
 
-		addResult, err := cmd.Run("feature/print-test")
+		batchResult, err := cmd.Run([]string{"feature/print-test"})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected error: %v", batchResult.Added[0].Err)
+		}
+		addResult := batchResult.Added[0].AddResult
 
 		// Verify worktree path matches expected
 		wtPath := filepath.Join(repoDir, "feature", "print-test")
@@ -635,6 +671,146 @@ worktree_destination_base_dir = %q
 		// Verify the path is a valid directory
 		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
 			t.Errorf("worktree directory does not exist: %s", wtPath)
+		}
+	})
+
+	t.Run("AddMultipleWorktrees", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		gwtDir := filepath.Join(mainDir, ".gwt")
+		if err := os.MkdirAll(gwtDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		settingsContent := fmt.Sprintf(`worktree_source_dir = %q
+worktree_destination_base_dir = %q
+symlinks = [".envrc"]
+`, mainDir, repoDir)
+		if err := os.WriteFile(filepath.Join(gwtDir, "settings.toml"), []byte(settingsContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(mainDir, ".envrc"), []byte("# envrc"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := &AddCommand{
+			FS:     osFS{},
+			Git:    NewGitRunner(mainDir),
+			Config: result.Config,
+		}
+
+		branches := []string{"feature/a", "feature/b", "feature/c"}
+		batchResult, err := cmd.Run(branches)
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected errors: %v", batchResult.Added)
+		}
+
+		if len(batchResult.Added) != 3 {
+			t.Errorf("expected 3 added, got %d", len(batchResult.Added))
+		}
+
+		// Verify all worktrees exist
+		for _, branch := range branches {
+			wtPath := filepath.Join(repoDir, branch)
+			if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+				t.Errorf("worktree not created: %s", wtPath)
+			}
+		}
+
+		// Verify git worktree list contains all branches
+		out := testutil.RunGit(t, mainDir, "worktree", "list")
+		for _, branch := range branches {
+			if !strings.Contains(out, branch) {
+				t.Errorf("worktree list does not contain %s: %s", branch, out)
+			}
+		}
+	})
+
+	t.Run("SyncWithMultipleWorktrees", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		gwtDir := filepath.Join(mainDir, ".gwt")
+		if err := os.MkdirAll(gwtDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		settingsContent := fmt.Sprintf(`worktree_source_dir = %q
+worktree_destination_base_dir = %q
+`, mainDir, repoDir)
+		if err := os.WriteFile(filepath.Join(gwtDir, "settings.toml"), []byte(settingsContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Commit settings first
+		testutil.RunGit(t, mainDir, "add", ".gwt")
+		testutil.RunGit(t, mainDir, "commit", "-m", "add gwt settings")
+
+		// Create uncommitted changes
+		modifiedFile := filepath.Join(mainDir, "sync-content.txt")
+		if err := os.WriteFile(modifiedFile, []byte("sync content"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := &AddCommand{
+			FS:     osFS{},
+			Git:    NewGitRunner(mainDir),
+			Config: result.Config,
+			Sync:   true,
+		}
+
+		branches := []string{"feature/sync-a", "feature/sync-b"}
+		batchResult, err := cmd.Run(branches)
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if batchResult.HasErrors() {
+			t.Fatalf("unexpected errors: %v", batchResult.Added)
+		}
+
+		if !batchResult.ChangesSynced {
+			t.Error("expected ChangesSynced to be true")
+		}
+
+		// Verify changes exist in both worktrees
+		for _, branch := range branches {
+			wtPath := filepath.Join(repoDir, branch)
+			syncedFile := filepath.Join(wtPath, "sync-content.txt")
+			content, err := os.ReadFile(syncedFile)
+			if err != nil {
+				t.Errorf("failed to read synced file in %s: %v", branch, err)
+				continue
+			}
+			if string(content) != "sync content" {
+				t.Errorf("synced file content in %s = %q, want %q", branch, string(content), "sync content")
+			}
+		}
+
+		// Verify source still has the file (stash was popped)
+		sourceContent, err := os.ReadFile(modifiedFile)
+		if err != nil {
+			t.Fatalf("failed to read source file: %v", err)
+		}
+		if string(sourceContent) != "sync content" {
+			t.Errorf("source file content = %q, want %q", string(sourceContent), "sync content")
 		}
 	})
 }

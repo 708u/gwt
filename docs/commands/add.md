@@ -1,44 +1,47 @@
 # add subcommand
 
-Create a new worktree with optional symlinks.
+Create worktrees with optional symlinks.
 
 ## Usage
 
 ```txt
-gwt add <name> [flags]
+gwt add <name>... [flags]
 ```
 
 ## Arguments
 
-- `<name>`: Branch name (required)
+- `<name>...`: One or more branch names (required)
 
 ## Flags
 
-| Flag            | Short | Description                               |
-|-----------------|-------|-------------------------------------------|
-| `--sync`        | `-s`  | Sync uncommitted changes to new worktree  |
-| `--print <field>` |     | Print specific field (path)               |
+| Flag              | Short | Description                                |
+|-------------------|-------|--------------------------------------------|
+| `--sync`          | `-s`  | Sync uncommitted changes to new worktrees  |
+| `--print <field>` |       | Print specific field (path)                |
 
 ## Behavior
 
-- Creates worktree at `WorktreeDestBaseDir/<name>`
-- If the branch already exists, uses that branch
-- If the branch doesn't exist, creates a new branch with `-b` flag
-- Creates symlinks from `WorktreeSourceDir` to worktree
+- Creates worktrees at `WorktreeDestBaseDir/<name>` for each branch
+- If a branch already exists, uses that branch
+- If a branch doesn't exist, creates a new branch with `-b` flag
+- Creates symlinks from `WorktreeSourceDir` to worktrees
   based on `Config.Symlinks` patterns
 - Warns when symlink patterns don't match any files
+- Errors on individual branches do not stop processing of remaining branches
+- Exit code 0 if all succeed, 1 if any fail
 
 ### Sync Option
 
-With `--sync`, uncommitted changes are copied to the new worktree:
+With `--sync`, uncommitted changes are copied to all new worktrees:
 
-1. Stashes current changes
-2. Creates the new worktree
-3. Applies stash to new worktree
-4. Restores changes in the source worktree
+1. Stashes current changes (once)
+2. For each branch:
+   - Creates the new worktree
+   - Applies stash to new worktree
+3. Restores changes in the source worktree (pops stash)
 
-If worktree creation or stash apply fails, changes are restored
-to the source worktree automatically.
+If a worktree creation or stash apply fails, that branch is skipped
+but processing continues for remaining branches.
 
 ### Print Option
 
@@ -54,3 +57,19 @@ Available fields:
 - `path`: Worktree path
 
 When `--print` is specified, `--verbose` is ignored.
+
+## Examples
+
+```bash
+# Create single worktree
+gwt add feature/new-feature
+
+# Create multiple worktrees
+gwt add feature/a feature/b feature/c
+
+# Sync changes to multiple worktrees
+gwt add --sync feature/a feature/b
+
+# Print paths for scripting
+gwt add --print path feature/a feature/b
+```

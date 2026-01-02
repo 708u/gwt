@@ -82,13 +82,16 @@ var rootCmd = &cobra.Command{
 }
 
 var addCmd = &cobra.Command{
-	Use:   "add <name>",
-	Short: "Create a new worktree with a new branch",
-	Args:  cobra.ExactArgs(1),
+	Use:   "add <name>...",
+	Short: "Create worktrees with branches",
+	Long: `Create git worktrees for the specified branches.
+
+Multiple branches can be specified. With --sync, uncommitted changes
+are stashed once and applied to all new worktrees.
+
+Errors on individual branches will not stop processing of remaining branches.`,
+	Args: cobra.MinimumNArgs(1),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if len(args) >= 1 {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
 		dir, err := resolveCompletionDirectory(cmd)
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveError
@@ -98,7 +101,14 @@ var addCmd = &cobra.Command{
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveError
 		}
-		return branches, cobra.ShellCompDirectiveNoFileComp
+		// Exclude already-specified branches from suggestions
+		available := make([]string, 0, len(branches))
+		for _, b := range branches {
+			if !slices.Contains(args, b) {
+				available = append(available, b)
+			}
+		}
+		return available, cobra.ShellCompDirectiveNoFileComp
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		verbose, _ := cmd.Flags().GetBool("verbose")
@@ -106,7 +116,7 @@ var addCmd = &cobra.Command{
 		printFlag, _ := cmd.Flags().GetString("print")
 
 		addCmd := gwt.NewAddCommand(cfg, gwt.AddOptions{Sync: sync})
-		result, err := addCmd.Run(args[0])
+		result, err := addCmd.Run(args)
 		if err != nil {
 			return err
 		}
@@ -126,6 +136,10 @@ var addCmd = &cobra.Command{
 			fmt.Fprint(os.Stderr, formatted.Stderr)
 		}
 		fmt.Fprint(os.Stdout, formatted.Stdout)
+
+		if result.HasErrors() {
+			return fmt.Errorf("failed to add %d worktree(s)", result.ErrorCount())
+		}
 		return nil
 	},
 }

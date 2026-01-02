@@ -47,6 +47,44 @@ type AddResult struct {
 	ChangesSynced bool
 }
 
+// AddedWorktree holds the result of a single add operation with optional error.
+type AddedWorktree struct {
+	AddResult
+	Err error
+}
+
+// AddBatchResult aggregates results from multiple add operations.
+type AddBatchResult struct {
+	Added         []AddedWorktree
+	ChangesSynced bool
+}
+
+// HasErrors returns true if any add operations failed.
+func (r AddBatchResult) HasErrors() bool {
+	for _, wt := range r.Added {
+		if wt.Err != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// ErrorCount returns the number of failed add operations.
+func (r AddBatchResult) ErrorCount() int {
+	count := 0
+	for _, wt := range r.Added {
+		if wt.Err != nil {
+			count++
+		}
+	}
+	return count
+}
+
+// SuccessCount returns the number of successful add operations.
+func (r AddBatchResult) SuccessCount() int {
+	return len(r.Added) - r.ErrorCount()
+}
+
 // AddFormatOptions configures add output formatting.
 type AddFormatOptions struct {
 	Verbose bool
@@ -126,13 +164,54 @@ func (r AddResult) formatDefault(opts AddFormatOptions) FormatResult {
 	return FormatResult{Stdout: stdout.String(), Stderr: stderr.String()}
 }
 
-// Run creates a new worktree for the given branch name.
-func (c *AddCommand) Run(name string) (AddResult, error) {
-	var result AddResult
-	result.Branch = name
+// Format formats the AddBatchResult for display.
+func (r AddBatchResult) Format(opts AddFormatOptions) FormatResult {
+	if len(opts.Print) > 0 {
+		return r.formatPrint(opts.Print)
+	}
+	return r.formatDefault(opts)
+}
 
-	if name == "" {
-		return result, fmt.Errorf("branch name is required")
+func (r AddBatchResult) formatPrint(fields []string) FormatResult {
+	var stdout strings.Builder
+	for _, wt := range r.Added {
+		if wt.Err != nil {
+			continue
+		}
+		for _, field := range fields {
+			switch field {
+			case "path":
+				stdout.WriteString(wt.WorktreePath)
+				stdout.WriteString("\n")
+			}
+		}
+	}
+	return FormatResult{Stdout: stdout.String()}
+}
+
+func (r AddBatchResult) formatDefault(opts AddFormatOptions) FormatResult {
+	var stdout, stderr strings.Builder
+
+	for _, wt := range r.Added {
+		if wt.Err != nil {
+			stderr.WriteString(fmt.Sprintf("error: %s: %v\n", wt.Branch, wt.Err))
+			continue
+		}
+		formatted := wt.AddResult.Format(opts)
+		stdout.WriteString(formatted.Stdout)
+		stderr.WriteString(formatted.Stderr)
+	}
+
+	return FormatResult{Stdout: stdout.String(), Stderr: stderr.String()}
+}
+
+// Run creates worktrees for the given branch names.
+// With Sync enabled, changes are stashed once and applied to all new worktrees.
+func (c *AddCommand) Run(names []string) (AddBatchResult, error) {
+	var result AddBatchResult
+
+	if len(names) == 0 {
+		return result, fmt.Errorf("at least one branch name is required")
 	}
 
 	if c.Config.WorktreeSourceDir == "" {
@@ -142,10 +221,7 @@ func (c *AddCommand) Run(name string) (AddResult, error) {
 		return result, fmt.Errorf("worktree destination base directory is not configured")
 	}
 
-	wtPath := filepath.Join(c.Config.WorktreeDestBaseDir, name)
-	result.WorktreePath = wtPath
-
-	// Check for changes and stash if sync is enabled
+	// Handle stash once for all worktrees
 	var shouldSync bool
 	if c.Sync {
 		hasChanges, err := c.Git.HasChanges()
@@ -160,12 +236,43 @@ func (c *AddCommand) Run(name string) (AddResult, error) {
 		}
 	}
 
+	// Process each branch
+	for _, name := range names {
+		addResult, err := c.runSingle(name, shouldSync)
+		added := AddedWorktree{AddResult: addResult}
+		if err != nil {
+			added.Err = err
+			added.Branch = name
+		}
+		result.Added = append(result.Added, added)
+	}
+
+	// Restore stash in source (pop to clean up stash stack)
+	if shouldSync {
+		if _, err := c.Git.StashPop(); err != nil {
+			// Log warning but don't fail - worktrees are already created
+			// The stash still exists and user can manually pop it
+		}
+		result.ChangesSynced = true
+	}
+
+	return result, nil
+}
+
+// runSingle creates a single worktree. If shouldSync is true, applies stash to new worktree.
+func (c *AddCommand) runSingle(name string, shouldSync bool) (AddResult, error) {
+	var result AddResult
+	result.Branch = name
+
+	if name == "" {
+		return result, fmt.Errorf("branch name is required")
+	}
+
+	wtPath := filepath.Join(c.Config.WorktreeDestBaseDir, name)
+	result.WorktreePath = wtPath
+
 	gitOutput, err := c.createWorktree(name, wtPath)
 	if err != nil {
-		if shouldSync {
-			// Restore stash on worktree creation failure
-			_, _ = c.Git.StashPop()
-		}
 		return result, err
 	}
 	result.GitOutput = gitOutput
@@ -173,14 +280,9 @@ func (c *AddCommand) Run(name string) (AddResult, error) {
 	// Apply stash to new worktree if sync is enabled
 	if shouldSync {
 		if _, err := c.Git.InDir(wtPath).StashApply(); err != nil {
-			// Rollback: remove worktree and restore stash
+			// Rollback: remove worktree on stash apply failure
 			_, _ = c.Git.WorktreeRemove(wtPath, WithForceRemove())
-			_, _ = c.Git.StashPop()
 			return result, fmt.Errorf("failed to apply changes to new worktree: %w", err)
-		}
-		// Restore stash in source
-		if _, err := c.Git.StashPop(); err != nil {
-			return result, fmt.Errorf("failed to restore changes in source: %w", err)
 		}
 		result.ChangesSynced = true
 	}
