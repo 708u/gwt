@@ -101,10 +101,17 @@ var addCmd = &cobra.Command{
 	},
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		source, _ := cmd.Flags().GetString("source")
+		sync, _ := cmd.Flags().GetBool("sync")
+		carry, _ := cmd.Flags().GetBool("carry")
 
 		// --source and -C are mutually exclusive
 		if source != "" && dirFlag != "" {
 			return fmt.Errorf("cannot use --source and -C together")
+		}
+
+		// --sync and --carry are mutually exclusive
+		if sync && carry {
+			return fmt.Errorf("cannot use --sync and --carry together")
 		}
 
 		// Resolve effective source: CLI --source > config default_source
@@ -139,9 +146,10 @@ var addCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		sync, _ := cmd.Flags().GetBool("sync")
+		carry, _ := cmd.Flags().GetBool("carry")
 		quiet, _ := cmd.Flags().GetBool("quiet")
 
-		addCmd := gwt.NewAddCommand(cfg, gwt.AddOptions{Sync: sync})
+		addCmd := gwt.NewAddCommand(cfg, gwt.AddOptions{Sync: sync, Carry: carry})
 		result, err := addCmd.Run(args[0])
 		if err != nil {
 			return err
@@ -246,6 +254,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 
 	addCmd.Flags().BoolP("sync", "s", false, "Sync uncommitted changes to new worktree")
+	addCmd.Flags().BoolP("carry", "c", false, "Carry uncommitted changes to new worktree (source becomes clean)")
 	addCmd.Flags().BoolP("quiet", "q", false, "Output only the worktree path")
 	addCmd.Flags().String("source", "", "Source branch's worktree to use")
 	rootCmd.AddCommand(addCmd)

@@ -17,6 +17,7 @@ func TestAddCommand_Run(t *testing.T) {
 		branch      string
 		config      *Config
 		sync        bool
+		carry       bool
 		setupFS     func(t *testing.T) *testutil.MockFS
 		setupGit    func(t *testing.T, captured *[]string) *testutil.MockGitExecutor
 		wantErr     bool
@@ -24,6 +25,7 @@ func TestAddCommand_Run(t *testing.T) {
 		wantBFlag   bool
 		checkPath   string
 		wantSynced  bool
+		wantCarried bool
 	}{
 		{
 			name:   "new_branch",
@@ -239,6 +241,65 @@ func TestAddCommand_Run(t *testing.T) {
 			wantBFlag:  true,
 			wantSynced: false,
 		},
+		{
+			name:   "carry_with_changes",
+			branch: "feature/carry",
+			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree", Symlinks: []string{".envrc"}},
+			carry:  true,
+			setupFS: func(t *testing.T) *testutil.MockFS {
+				t.Helper()
+				return &testutil.MockFS{}
+			},
+			setupGit: func(t *testing.T, captured *[]string) *testutil.MockGitExecutor {
+				t.Helper()
+				return &testutil.MockGitExecutor{
+					CapturedArgs: captured,
+					HasChanges:   true,
+				}
+			},
+			wantErr:     false,
+			wantBFlag:   true,
+			wantCarried: true,
+		},
+		{
+			name:   "carry_no_changes",
+			branch: "feature/carry-no-changes",
+			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree", Symlinks: []string{".envrc"}},
+			carry:  true,
+			setupFS: func(t *testing.T) *testutil.MockFS {
+				t.Helper()
+				return &testutil.MockFS{}
+			},
+			setupGit: func(t *testing.T, captured *[]string) *testutil.MockGitExecutor {
+				t.Helper()
+				return &testutil.MockGitExecutor{
+					CapturedArgs: captured,
+					HasChanges:   false,
+				}
+			},
+			wantErr:     false,
+			wantBFlag:   true,
+			wantCarried: false,
+		},
+		{
+			name:   "carry_stash_apply_error",
+			branch: "feature/carry-apply-err",
+			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree"},
+			carry:  true,
+			setupFS: func(t *testing.T) *testutil.MockFS {
+				t.Helper()
+				return &testutil.MockFS{}
+			},
+			setupGit: func(t *testing.T, captured *[]string) *testutil.MockGitExecutor {
+				t.Helper()
+				return &testutil.MockGitExecutor{
+					HasChanges:    true,
+					StashApplyErr: errors.New("stash apply failed"),
+				}
+			},
+			wantErr:     true,
+			errContains: "failed to apply changes",
+		},
 	}
 
 	for _, tt := range tests {
@@ -255,6 +316,7 @@ func TestAddCommand_Run(t *testing.T) {
 				Git:    &GitRunner{Executor: mockGit},
 				Config: tt.config,
 				Sync:   tt.sync,
+				Carry:  tt.carry,
 			}
 
 			result, err := cmd.Run(tt.branch)
@@ -287,6 +349,10 @@ func TestAddCommand_Run(t *testing.T) {
 
 			if result.ChangesSynced != tt.wantSynced {
 				t.Errorf("ChangesSynced = %v, want %v", result.ChangesSynced, tt.wantSynced)
+			}
+
+			if result.ChangesCarried != tt.wantCarried {
+				t.Errorf("ChangesCarried = %v, want %v", result.ChangesCarried, tt.wantCarried)
 			}
 		})
 	}
@@ -350,6 +416,47 @@ func TestAddResult_Format(t *testing.T) {
 			}
 		})
 	}
+
+	// Test carried output
+	t.Run("default_output_carried", func(t *testing.T) {
+		t.Parallel()
+
+		carriedResult := AddResult{
+			Branch:       "feature/test",
+			WorktreePath: "/worktrees/feature/test",
+			Symlinks: []SymlinkResult{
+				{Src: "/repo/.envrc", Dst: "/worktrees/feature/test/.envrc"},
+			},
+			ChangesCarried: true,
+		}
+
+		got := carriedResult.Format(AddFormatOptions{})
+		want := "gwt add: feature/test (1 symlinks, carried)\n"
+
+		if got.Stdout != want {
+			t.Errorf("Stdout = %q, want %q", got.Stdout, want)
+		}
+	})
+
+	t.Run("verbose_output_carried", func(t *testing.T) {
+		t.Parallel()
+
+		carriedResult := AddResult{
+			Branch:       "feature/test",
+			WorktreePath: "/worktrees/feature/test",
+			Symlinks: []SymlinkResult{
+				{Src: "/repo/.envrc", Dst: "/worktrees/feature/test/.envrc"},
+			},
+			ChangesCarried: true,
+		}
+
+		got := carriedResult.Format(AddFormatOptions{Verbose: true})
+		wantContains := "Carried uncommitted changes (source is now clean)"
+
+		if !strings.Contains(got.Stdout, wantContains) {
+			t.Errorf("Stdout = %q, should contain %q", got.Stdout, wantContains)
+		}
+	})
 }
 
 func TestAddCommand_createSymlinks(t *testing.T) {

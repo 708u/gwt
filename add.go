@@ -13,11 +13,13 @@ type AddCommand struct {
 	Git    *GitRunner
 	Config *Config
 	Sync   bool
+	Carry  bool
 }
 
 // AddOptions holds options for the add command.
 type AddOptions struct {
-	Sync bool
+	Sync  bool
+	Carry bool
 }
 
 // NewAddCommand creates a new AddCommand with the given config.
@@ -27,6 +29,7 @@ func NewAddCommand(cfg *Config, opts AddOptions) *AddCommand {
 		Git:    NewGitRunner(cfg.WorktreeSourceDir),
 		Config: cfg,
 		Sync:   opts.Sync,
+		Carry:  opts.Carry,
 	}
 }
 
@@ -40,11 +43,12 @@ type SymlinkResult struct {
 
 // AddResult holds the result of an add operation.
 type AddResult struct {
-	Branch        string
-	WorktreePath  string
-	Symlinks      []SymlinkResult
-	GitOutput     []byte
-	ChangesSynced bool
+	Branch         string
+	WorktreePath   string
+	Symlinks       []SymlinkResult
+	GitOutput      []byte
+	ChangesSynced  bool
+	ChangesCarried bool
 }
 
 // AddFormatOptions configures add output formatting.
@@ -92,11 +96,16 @@ func (r AddResult) formatDefault(opts AddFormatOptions) FormatResult {
 		if r.ChangesSynced {
 			stdout.WriteString("Synced uncommitted changes\n")
 		}
+		if r.ChangesCarried {
+			stdout.WriteString("Carried uncommitted changes (source is now clean)\n")
+		}
 	}
 
 	var syncInfo string
 	if r.ChangesSynced {
 		syncInfo = ", synced"
+	} else if r.ChangesCarried {
+		syncInfo = ", carried"
 	}
 	stdout.WriteString(fmt.Sprintf("gwt add: %s (%d symlinks%s)\n", r.Branch, createdCount, syncInfo))
 
@@ -122,44 +131,59 @@ func (c *AddCommand) Run(name string) (AddResult, error) {
 	wtPath := filepath.Join(c.Config.WorktreeDestBaseDir, name)
 	result.WorktreePath = wtPath
 
-	// Check for changes and stash if sync is enabled
-	var shouldSync bool
+	// Determine stash mode
+	var stashMsg string
+	var isCarry bool
 	if c.Sync {
+		stashMsg = "gwt sync"
+	}
+	if c.Carry {
+		stashMsg = "gwt carry"
+		isCarry = true
+	}
+
+	// Stash changes if sync or carry is enabled
+	var stashed bool
+	if stashMsg != "" {
 		hasChanges, err := c.Git.HasChanges()
 		if err != nil {
 			return result, fmt.Errorf("failed to check for changes: %w", err)
 		}
-		shouldSync = hasChanges
-		if shouldSync {
-			if _, err := c.Git.StashPush("gwt sync"); err != nil {
+		if hasChanges {
+			if _, err := c.Git.StashPush(stashMsg); err != nil {
 				return result, fmt.Errorf("failed to stash changes: %w", err)
 			}
+			stashed = true
 		}
 	}
 
 	gitOutput, err := c.createWorktree(name, wtPath)
 	if err != nil {
-		if shouldSync {
-			// Restore stash on worktree creation failure
+		if stashed {
 			_, _ = c.Git.StashPop()
 		}
 		return result, err
 	}
 	result.GitOutput = gitOutput
 
-	// Apply stash to new worktree if sync is enabled
-	if shouldSync {
+	// Apply stashed changes to new worktree
+	if stashed {
 		if _, err := c.Git.InDir(wtPath).StashApply(); err != nil {
-			// Rollback: remove worktree and restore stash
 			_, _ = c.Git.WorktreeRemove(wtPath, WithForceRemove())
 			_, _ = c.Git.StashPop()
 			return result, fmt.Errorf("failed to apply changes to new worktree: %w", err)
 		}
-		// Restore stash in source
-		if _, err := c.Git.StashPop(); err != nil {
-			return result, fmt.Errorf("failed to restore changes in source: %w", err)
+		if isCarry {
+			// Carry: drop stash (source becomes clean)
+			_, _ = c.Git.StashDrop()
+			result.ChangesCarried = true
+		} else {
+			// Sync: restore stash in source (both have changes)
+			if _, err := c.Git.StashPop(); err != nil {
+				return result, fmt.Errorf("failed to restore changes in source: %w", err)
+			}
+			result.ChangesSynced = true
 		}
-		result.ChangesSynced = true
 	}
 
 	symlinks, err := c.createSymlinks(

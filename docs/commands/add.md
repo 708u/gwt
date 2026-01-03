@@ -14,11 +14,12 @@ gwt add <name> [flags]
 
 ## Flags
 
-| Flag                | Short | Description                               |
-|---------------------|-------|-------------------------------------------|
-| `--sync`            | `-s`  | Sync uncommitted changes to new worktree  |
-| `--quiet`           | `-q`  | Output only the worktree path             |
-| `--source <branch>` |       | Use specified branch's worktree as source |
+| Flag                | Short | Description                                          |
+|---------------------|-------|------------------------------------------------------|
+| `--sync`            | `-s`  | Sync uncommitted changes to new worktree             |
+| `--carry`           | `-c`  | Carry uncommitted changes to new worktree            |
+| `--quiet`           | `-q`  | Output only the worktree path                        |
+| `--source <branch>` |       | Use specified branch's worktree as source            |
 
 ## Behavior
 
@@ -40,6 +41,30 @@ With `--sync`, uncommitted changes are copied to the new worktree:
 
 If worktree creation or stash apply fails, changes are restored
 to the source worktree automatically.
+
+### Carry Option
+
+With `--carry`, uncommitted changes are moved to the new worktree:
+
+1. Stashes current changes
+2. Creates the new worktree
+3. Applies stash to new worktree
+4. Drops the stash (source worktree becomes clean)
+
+Unlike `--sync` which copies changes to both worktrees, `--carry` moves
+changes so that only the new worktree has them.
+
+```bash
+# Move current work to a new branch
+gwt add feat/new --carry
+```
+
+If worktree creation or stash apply fails, changes are restored
+to the source worktree automatically.
+
+Constraints:
+
+- Cannot be used together with `--sync`
 
 ### Quiet Option
 
@@ -66,7 +91,8 @@ When `--source` is specified:
 
 - Settings are loaded from the source branch's worktree
 - Symlinks are created from the source branch's worktree
-- With `--sync`, changes are stashed from the source branch's worktree
+- With `--sync` or `--carry`, changes are stashed from the source branch's
+  worktree
 
 Constraints:
 

@@ -275,18 +275,27 @@ func (g *GitRunner) HasChanges() (bool, error) {
 }
 
 // StashPush stashes all changes including untracked files.
+// TODO: Return stash hash to avoid race condition. See docs/tasks/fix-stash-race-condition/task.md
 func (g *GitRunner) StashPush(message string) ([]byte, error) {
 	return g.Run("stash", "push", "-u", "-m", message)
 }
 
 // StashApply applies the latest stash without dropping it.
+// TODO: Accept hash parameter to avoid race condition. See docs/tasks/fix-stash-race-condition/task.md
 func (g *GitRunner) StashApply() ([]byte, error) {
 	return g.Run("stash", "apply", "stash@{0}")
 }
 
 // StashPop pops the latest stash.
+// TODO: Accept hash parameter to avoid race condition. See docs/tasks/fix-stash-race-condition/task.md
 func (g *GitRunner) StashPop() ([]byte, error) {
 	return g.Run("stash", "pop")
+}
+
+// StashDrop drops the latest stash without applying it.
+// TODO: Accept hash parameter to avoid race condition. See docs/tasks/fix-stash-race-condition/task.md
+func (g *GitRunner) StashDrop() ([]byte, error) {
+	return g.Run("stash", "drop", "stash@{0}")
 }
 
 // private methods for git command execution

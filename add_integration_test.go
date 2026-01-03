@@ -536,6 +536,83 @@ worktree_destination_base_dir = %q
 		}
 	})
 
+	t.Run("CarryUncommittedChanges", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		gwtDir := filepath.Join(mainDir, ".gwt")
+		if err := os.MkdirAll(gwtDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		settingsContent := fmt.Sprintf(`worktree_source_dir = %q
+worktree_destination_base_dir = %q
+`, mainDir, repoDir)
+		if err := os.WriteFile(filepath.Join(gwtDir, "settings.toml"), []byte(settingsContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Commit .gwt/settings.toml first
+		testutil.RunGit(t, mainDir, "add", ".gwt")
+		testutil.RunGit(t, mainDir, "commit", "-m", "add gwt settings")
+
+		// Create uncommitted changes in source
+		modifiedFile := filepath.Join(mainDir, "carried.txt")
+		if err := os.WriteFile(modifiedFile, []byte("carried content"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := &AddCommand{
+			FS:     osFS{},
+			Git:    NewGitRunner(mainDir),
+			Config: result.Config,
+			Carry:  true,
+		}
+
+		addResult, err := cmd.Run("feature/carry-test")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		// Verify ChangesCarried is true
+		if !addResult.ChangesCarried {
+			t.Error("expected ChangesCarried to be true")
+		}
+
+		// Verify worktree was created
+		wtPath := filepath.Join(repoDir, "feature", "carry-test")
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Errorf("worktree directory does not exist: %s", wtPath)
+		}
+
+		// Verify the file exists in new worktree
+		carriedFile := filepath.Join(wtPath, "carried.txt")
+		content, err := os.ReadFile(carriedFile)
+		if err != nil {
+			t.Fatalf("failed to read carried file: %v", err)
+		}
+		if string(content) != "carried content" {
+			t.Errorf("carried file content = %q, want %q", string(content), "carried content")
+		}
+
+		// Verify the file does NOT exist in source (carried away, not synced)
+		if _, err := os.Stat(modifiedFile); !os.IsNotExist(err) {
+			t.Errorf("source file should not exist after carry: %s", modifiedFile)
+		}
+
+		// Verify source is clean
+		status := testutil.RunGit(t, mainDir, "status", "--porcelain")
+		if strings.TrimSpace(status) != "" {
+			t.Errorf("source should be clean after carry, got: %q", status)
+		}
+	})
+
 	t.Run("SyncWithNoChanges", func(t *testing.T) {
 		t.Parallel()
 
