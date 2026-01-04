@@ -104,14 +104,8 @@ var addCmd = &cobra.Command{
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		source, _ := cmd.Flags().GetString("source")
 
-		// --source and -C are mutually exclusive
-		if source != "" && dirFlag != "" {
-			return fmt.Errorf("cannot use --source and -C together")
-		}
-
 		// Resolve effective source: CLI --source > config default_source
-		// When -C is specified, default_source is ignored
-		if source == "" && dirFlag == "" {
+		if source == "" {
 			source = cfg.DefaultSource
 		}
 
