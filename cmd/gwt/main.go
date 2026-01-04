@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	cfg     *gwt.Config
-	cwd     string
-	dirFlag string
+	cfg         *gwt.Config
+	cwd         string
+	originalCwd string
+	dirFlag     string
 )
 
 func resolveDirectory(dirFlag, baseCwd string) (string, error) {
@@ -58,12 +59,12 @@ var rootCmd = &cobra.Command{
 	Short: "Manage git worktrees and branches together",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
-		cwd, err = os.Getwd()
+		originalCwd, err = os.Getwd()
 		if err != nil {
 			return fmt.Errorf("failed to get current directory: %w", err)
 		}
 
-		cwd, err = resolveDirectory(dirFlag, cwd)
+		cwd, err = resolveDirectory(dirFlag, originalCwd)
 		if err != nil {
 			return err
 		}
@@ -102,7 +103,7 @@ var addCmd = &cobra.Command{
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		source, _ := cmd.Flags().GetString("source")
 		sync, _ := cmd.Flags().GetBool("sync")
-		carry, _ := cmd.Flags().GetBool("carry")
+		carryEnabled := cmd.Flags().Changed("carry")
 
 		// --source and -C are mutually exclusive
 		if source != "" && dirFlag != "" {
@@ -110,7 +111,7 @@ var addCmd = &cobra.Command{
 		}
 
 		// --sync and --carry are mutually exclusive
-		if sync && carry {
+		if sync && carryEnabled {
 			return fmt.Errorf("cannot use --sync and --carry together")
 		}
 
@@ -146,10 +147,31 @@ var addCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		sync, _ := cmd.Flags().GetBool("sync")
-		carry, _ := cmd.Flags().GetBool("carry")
 		quiet, _ := cmd.Flags().GetBool("quiet")
 
-		addCmd := gwt.NewAddCommand(cfg, gwt.AddOptions{Sync: sync, Carry: carry})
+		// Resolve CarryFrom path
+		var carryFrom string
+		if cmd.Flags().Changed("carry") {
+			carryValue, _ := cmd.Flags().GetString("carry")
+			switch carryValue {
+			case "":
+				// --carry without value: use source worktree (cwd)
+				carryFrom = cwd
+			case "@":
+				// --carry=@: use original worktree (where command was executed)
+				carryFrom = originalCwd
+			default:
+				// --carry=<branch>: resolve branch to worktree path
+				git := gwt.NewGitRunner(cwd)
+				path, err := git.WorktreeFindByBranch(carryValue)
+				if err != nil {
+					return fmt.Errorf("failed to find worktree for branch %q: %w", carryValue, err)
+				}
+				carryFrom = path
+			}
+		}
+
+		addCmd := gwt.NewAddCommand(cfg, gwt.AddOptions{Sync: sync, CarryFrom: carryFrom})
 		result, err := addCmd.Run(args[0])
 		if err != nil {
 			return err
@@ -254,7 +276,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 
 	addCmd.Flags().BoolP("sync", "s", false, "Sync uncommitted changes to new worktree")
-	addCmd.Flags().BoolP("carry", "c", false, "Carry uncommitted changes to new worktree (source becomes clean)")
+	addCmd.Flags().StringP("carry", "c", "", "Carry uncommitted changes (optionally specify source branch)")
 	addCmd.Flags().BoolP("quiet", "q", false, "Output only the worktree path")
 	addCmd.Flags().String("source", "", "Source branch's worktree to use")
 	rootCmd.AddCommand(addCmd)

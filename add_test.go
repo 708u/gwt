@@ -17,7 +17,7 @@ func TestAddCommand_Run(t *testing.T) {
 		branch      string
 		config      *Config
 		sync        bool
-		carry       bool
+		carryFrom   string
 		setupFS     func(t *testing.T) *testutil.MockFS
 		setupGit    func(t *testing.T, captured *[]string) *testutil.MockGitExecutor
 		wantErr     bool
@@ -242,10 +242,10 @@ func TestAddCommand_Run(t *testing.T) {
 			wantSynced: false,
 		},
 		{
-			name:   "carry_with_changes",
-			branch: "feature/carry",
-			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree", Symlinks: []string{".envrc"}},
-			carry:  true,
+			name:      "carry_with_changes",
+			branch:    "feature/carry",
+			config:    &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree", Symlinks: []string{".envrc"}},
+			carryFrom: "/repo/main",
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{}
@@ -262,10 +262,10 @@ func TestAddCommand_Run(t *testing.T) {
 			wantCarried: true,
 		},
 		{
-			name:   "carry_no_changes",
-			branch: "feature/carry-no-changes",
-			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree", Symlinks: []string{".envrc"}},
-			carry:  true,
+			name:      "carry_no_changes",
+			branch:    "feature/carry-no-changes",
+			config:    &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree", Symlinks: []string{".envrc"}},
+			carryFrom: "/repo/main",
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{}
@@ -282,10 +282,10 @@ func TestAddCommand_Run(t *testing.T) {
 			wantCarried: false,
 		},
 		{
-			name:   "carry_stash_apply_error",
-			branch: "feature/carry-apply-err",
-			config: &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree"},
-			carry:  true,
+			name:      "carry_stash_apply_error",
+			branch:    "feature/carry-apply-err",
+			config:    &Config{WorktreeSourceDir: "/repo/main", WorktreeDestBaseDir: "/repo/main-worktree"},
+			carryFrom: "/repo/main",
 			setupFS: func(t *testing.T) *testutil.MockFS {
 				t.Helper()
 				return &testutil.MockFS{}
@@ -312,11 +312,11 @@ func TestAddCommand_Run(t *testing.T) {
 			mockGit := tt.setupGit(t, &captured)
 
 			cmd := &AddCommand{
-				FS:     mockFS,
-				Git:    &GitRunner{Executor: mockGit},
-				Config: tt.config,
-				Sync:   tt.sync,
-				Carry:  tt.carry,
+				FS:        mockFS,
+				Git:       &GitRunner{Executor: mockGit},
+				Config:    tt.config,
+				Sync:      tt.sync,
+				CarryFrom: tt.carryFrom,
 			}
 
 			result, err := cmd.Run(tt.branch)

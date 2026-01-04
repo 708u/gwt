@@ -9,27 +9,27 @@ import (
 
 // AddCommand creates git worktrees with symlinks.
 type AddCommand struct {
-	FS     FileSystem
-	Git    *GitRunner
-	Config *Config
-	Sync   bool
-	Carry  bool
+	FS        FileSystem
+	Git       *GitRunner
+	Config    *Config
+	Sync      bool
+	CarryFrom string
 }
 
 // AddOptions holds options for the add command.
 type AddOptions struct {
-	Sync  bool
-	Carry bool
+	Sync      bool
+	CarryFrom string // empty: no carry, non-empty: resolved path to carry from
 }
 
 // NewAddCommand creates a new AddCommand with the given config.
 func NewAddCommand(cfg *Config, opts AddOptions) *AddCommand {
 	return &AddCommand{
-		FS:     osFS{},
-		Git:    NewGitRunner(cfg.WorktreeSourceDir),
-		Config: cfg,
-		Sync:   opts.Sync,
-		Carry:  opts.Carry,
+		FS:        osFS{},
+		Git:       NewGitRunner(cfg.WorktreeSourceDir),
+		Config:    cfg,
+		Sync:      opts.Sync,
+		CarryFrom: opts.CarryFrom,
 	}
 }
 
@@ -131,26 +131,29 @@ func (c *AddCommand) Run(name string) (AddResult, error) {
 	wtPath := filepath.Join(c.Config.WorktreeDestBaseDir, name)
 	result.WorktreePath = wtPath
 
-	// Determine stash mode
+	// Determine stash mode and source
 	var stashMsg string
 	var isCarry bool
+	var stashSourceGit *GitRunner
 	if c.Sync {
 		stashMsg = "gwt sync"
+		stashSourceGit = c.Git
 	}
-	if c.Carry {
+	if c.CarryFrom != "" {
 		stashMsg = "gwt carry"
 		isCarry = true
+		stashSourceGit = c.Git.InDir(c.CarryFrom)
 	}
 
 	// Stash changes if sync or carry is enabled
 	var stashed bool
 	if stashMsg != "" {
-		hasChanges, err := c.Git.HasChanges()
+		hasChanges, err := stashSourceGit.HasChanges()
 		if err != nil {
 			return result, fmt.Errorf("failed to check for changes: %w", err)
 		}
 		if hasChanges {
-			if _, err := c.Git.StashPush(stashMsg); err != nil {
+			if _, err := stashSourceGit.StashPush(stashMsg); err != nil {
 				return result, fmt.Errorf("failed to stash changes: %w", err)
 			}
 			stashed = true
@@ -160,7 +163,7 @@ func (c *AddCommand) Run(name string) (AddResult, error) {
 	gitOutput, err := c.createWorktree(name, wtPath)
 	if err != nil {
 		if stashed {
-			_, _ = c.Git.StashPop()
+			_, _ = stashSourceGit.StashPop()
 		}
 		return result, err
 	}
@@ -168,18 +171,18 @@ func (c *AddCommand) Run(name string) (AddResult, error) {
 
 	// Apply stashed changes to new worktree
 	if stashed {
-		if _, err := c.Git.InDir(wtPath).StashApply(); err != nil {
+		if _, err := stashSourceGit.InDir(wtPath).StashApply(); err != nil {
 			_, _ = c.Git.WorktreeRemove(wtPath, WithForceRemove())
-			_, _ = c.Git.StashPop()
+			_, _ = stashSourceGit.StashPop()
 			return result, fmt.Errorf("failed to apply changes to new worktree: %w", err)
 		}
 		if isCarry {
 			// Carry: drop stash (source becomes clean)
-			_, _ = c.Git.StashDrop()
+			_, _ = stashSourceGit.StashDrop()
 			result.ChangesCarried = true
 		} else {
 			// Sync: restore stash in source (both have changes)
-			if _, err := c.Git.StashPop(); err != nil {
+			if _, err := stashSourceGit.StashPop(); err != nil {
 				return result, fmt.Errorf("failed to restore changes in source: %w", err)
 			}
 			result.ChangesSynced = true
