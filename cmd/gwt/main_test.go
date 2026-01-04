@@ -383,79 +383,198 @@ worktree_destination_base_dir = %q
 func TestAddCmd(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name                  string
-		args                  []string
-		result                gwt.AddResult
-		err                   error
-		wantOpts              gwt.AddOptions
-		wantCalledName        string
-		wantStdoutContains    []string
-		wantStdoutNotContains []string
-		wantStderrContains    []string
-		wantErrContains       string
-	}{
-		{
-			name: "basic_execution",
-			args: []string{"add", "feat/test"},
+	t.Run("BasicExecution", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:       "feat/test",
 				WorktreePath: "/path/to/worktree",
 				Symlinks:     []gwt.SymlinkResult{},
 			},
-			wantCalledName: "feat/test",
-		},
-		{
-			name: "sync_flag",
-			args: []string{"add", "--sync", "feat/sync"},
+		}
+
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			return mock
+		}))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "feat/test"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if mock.calledName != "feat/test" {
+			t.Errorf("calledName = %q, want %q", mock.calledName, "feat/test")
+		}
+	})
+
+	t.Run("SyncFlag", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		var calledOpts gwt.AddOptions
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:        "feat/sync",
 				WorktreePath:  "/path/to/worktree",
 				ChangesSynced: true,
 			},
-			wantOpts: gwt.AddOptions{Sync: true},
-		},
-		{
-			name: "quiet_flag",
-			args: []string{"add", "--quiet", "feat/quiet"},
+		}
+
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			calledOpts = opts
+			return mock
+		}))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "--sync", "feat/sync"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !calledOpts.Sync {
+			t.Error("expected Sync option to be true")
+		}
+	})
+
+	t.Run("QuietFlag", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:       "feat/quiet",
 				WorktreePath: "/path/to/worktree",
 			},
-			wantStdoutContains:    []string{"/path/to/worktree"},
-			wantStdoutNotContains: []string{"gwt add:"},
-		},
-		{
-			name: "lock_flags",
-			args: []string{"add", "--lock", "--reason", "USB work", "feat/lock"},
+		}
+
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			return mock
+		}))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "--quiet", "feat/quiet"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !strings.Contains(stdout.String(), "/path/to/worktree") {
+			t.Errorf("stdout = %q, want to contain worktree path", stdout.String())
+		}
+		if strings.Contains(stdout.String(), "gwt add:") {
+			t.Errorf("stdout = %q, should not contain 'gwt add:'", stdout.String())
+		}
+	})
+
+	t.Run("LockFlags", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		var calledOpts gwt.AddOptions
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:       "feat/lock",
 				WorktreePath: "/path/to/worktree",
 			},
-			wantOpts: gwt.AddOptions{Lock: true, LockReason: "USB work"},
-		},
-		{
-			name: "reason_without_lock",
-			args: []string{"add", "--reason", "some reason", "feat/error"},
+		}
+
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			calledOpts = opts
+			return mock
+		}))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "--lock", "--reason", "USB work", "feat/lock"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !calledOpts.Lock {
+			t.Error("expected Lock option to be true")
+		}
+		if calledOpts.LockReason != "USB work" {
+			t.Errorf("LockReason = %q, want %q", calledOpts.LockReason, "USB work")
+		}
+	})
+
+	t.Run("ReasonWithoutLock", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:       "feat/error",
 				WorktreePath: "/path/to/worktree",
 			},
-			wantErrContains: "--reason requires --lock",
-		},
-		{
-			name: "error_from_command",
-			args: []string{"add", "feat/fail"},
-			err:  errors.New("worktree creation failed"),
+		}
+
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			return mock
+		}))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "--reason", "some reason", "feat/error"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "--reason requires --lock") {
+			t.Errorf("error = %q, want to contain %q", err.Error(), "--reason requires --lock")
+		}
+	})
+
+	t.Run("ErrorFromCommand", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:       "feat/fail",
 				WorktreePath: "/path/to/worktree",
 			},
-			wantErrContains: "worktree creation failed",
-		},
-		{
-			name: "output_with_symlinks",
-			args: []string{"add", "feat/symlinks"},
+			err: errors.New("worktree creation failed"),
+		}
+
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			return mock
+		}))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "feat/fail"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "worktree creation failed") {
+			t.Errorf("error = %q, want to contain %q", err.Error(), "worktree creation failed")
+		}
+	})
+
+	t.Run("OutputWithSymlinks", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:       "feat/symlinks",
 				WorktreePath: "/path/to/worktree",
@@ -464,11 +583,31 @@ func TestAddCmd(t *testing.T) {
 					{Src: "/src/.tool-versions", Dst: "/dst/.tool-versions"},
 				},
 			},
-			wantStdoutContains: []string{"2 symlinks"},
-		},
-		{
-			name: "output_with_warnings",
-			args: []string{"add", "feat/warn"},
+		}
+
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			return mock
+		}))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "feat/symlinks"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !strings.Contains(stdout.String(), "2 symlinks") {
+			t.Errorf("stdout = %q, want to contain '2 symlinks'", stdout.String())
+		}
+	})
+
+	t.Run("OutputWithWarnings", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:       "feat/warn",
 				WorktreePath: "/path/to/worktree",
@@ -477,90 +616,57 @@ func TestAddCmd(t *testing.T) {
 					{Skipped: true, Reason: "pattern.txt does not match any files, skipping"},
 				},
 			},
-			wantStdoutContains: []string{"1 symlinks"},
-			wantStderrContains: []string{"pattern.txt does not match any files"},
-		},
-		{
-			name: "sync_and_carry_mutually_exclusive",
-			args: []string{"add", "--sync", "--carry=@", "feat/conflict"},
+		}
+
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			return mock
+		}))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "feat/warn"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !strings.Contains(stdout.String(), "1 symlinks") {
+			t.Errorf("stdout = %q, want to contain '1 symlinks'", stdout.String())
+		}
+		if !strings.Contains(stderr.String(), "pattern.txt does not match any files") {
+			t.Errorf("stderr = %q, want to contain warning", stderr.String())
+		}
+	})
+
+	t.Run("SyncAndCarryMutuallyExclusive", func(t *testing.T) {
+		t.Parallel()
+
+		mainDir := setupTestRepo(t)
+		mock := &mockAddCommander{
 			result: gwt.AddResult{
 				Branch:       "feat/conflict",
 				WorktreePath: "/path/to/worktree",
 			},
-			wantErrContains: "cannot use --sync and --carry together",
-		},
-	}
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
+			return mock
+		}))
 
-			mainDir := setupTestRepo(t)
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", mainDir, "add", "--sync", "--carry=@", "feat/conflict"})
 
-			mock := &mockAddCommander{
-				result: tt.result,
-				err:    tt.err,
-			}
-
-			cmd := newRootCmd(WithNewAddCommander(func(cfg *gwt.Config, opts gwt.AddOptions) AddCommander {
-				mock.calledOpts = opts
-				return mock
-			}))
-
-			var stdout, stderr bytes.Buffer
-			cmd.SetOut(&stdout)
-			cmd.SetErr(&stderr)
-			cmd.SetArgs(append([]string{"-C", mainDir}, tt.args...))
-
-			err := cmd.Execute()
-
-			if tt.wantErrContains != "" {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if !strings.Contains(err.Error(), tt.wantErrContains) {
-					t.Errorf("error = %q, want to contain %q", err.Error(), tt.wantErrContains)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if tt.wantCalledName != "" && mock.calledName != tt.wantCalledName {
-				t.Errorf("calledName = %q, want %q", mock.calledName, tt.wantCalledName)
-			}
-
-			if tt.wantOpts.Sync && !mock.calledOpts.Sync {
-				t.Error("expected Sync option to be true")
-			}
-			if tt.wantOpts.Lock && !mock.calledOpts.Lock {
-				t.Error("expected Lock option to be true")
-			}
-			if tt.wantOpts.LockReason != "" && mock.calledOpts.LockReason != tt.wantOpts.LockReason {
-				t.Errorf("LockReason = %q, want %q", mock.calledOpts.LockReason, tt.wantOpts.LockReason)
-			}
-
-			for _, want := range tt.wantStdoutContains {
-				if !strings.Contains(stdout.String(), want) {
-					t.Errorf("stdout = %q, want to contain %q", stdout.String(), want)
-				}
-			}
-
-			for _, notWant := range tt.wantStdoutNotContains {
-				if strings.Contains(stdout.String(), notWant) {
-					t.Errorf("stdout = %q, should not contain %q", stdout.String(), notWant)
-				}
-			}
-
-			for _, want := range tt.wantStderrContains {
-				if !strings.Contains(stderr.String(), want) {
-					t.Errorf("stderr = %q, want to contain %q", stderr.String(), want)
-				}
-			}
-		})
-	}
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "cannot use --sync and --carry together") {
+			t.Errorf("error = %q, want to contain %q", err.Error(), "cannot use --sync and --carry together")
+		}
+	})
 }
 
 func TestRemoveCmd(t *testing.T) {
