@@ -20,6 +20,8 @@ gwt add <name> [flags]
 | `--carry [<branch>]`  | `-c`  | Carry uncommitted changes (optionally from branch) |
 | `--quiet`             | `-q`  | Output only the worktree path                      |
 | `--source <branch>`   |       | Use specified branch's worktree as source          |
+| `--lock`              |       | Lock the worktree after creation                   |
+| `--reason <string>`   |       | Reason for locking (requires `--lock`)             |
 
 ## Behavior
 
@@ -120,6 +122,26 @@ Constraints:
 
 - Cannot be used together with `-C`
 - The specified branch must have an existing worktree
+
+### Lock Option
+
+With `--lock`, the worktree is locked after creation to prevent automatic
+pruning by `git worktree prune`. This is useful for worktrees on portable
+devices or network shares that are not always mounted.
+
+```bash
+# Create a locked worktree
+gwt add feat/usb-work --lock
+
+# Create a locked worktree with a reason
+gwt add feat/usb-work --lock --reason "USB drive work"
+```
+
+The `--reason` option requires `--lock` and adds an explanation for why
+the worktree is locked. This reason is displayed by `git worktree list`.
+
+Locked worktrees require `--force` (or `-f -f`) to be moved or removed
+with git commands.
 
 ### Default Source Configuration
 

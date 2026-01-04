@@ -150,6 +150,13 @@ var addCmd = &cobra.Command{
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		sync, _ := cmd.Flags().GetBool("sync")
 		quiet, _ := cmd.Flags().GetBool("quiet")
+		lock, _ := cmd.Flags().GetBool("lock")
+		lockReason, _ := cmd.Flags().GetString("reason")
+
+		// --reason requires --lock
+		if lockReason != "" && !lock {
+			return fmt.Errorf("--reason requires --lock")
+		}
 
 		// Resolve CarryFrom path
 		var carryFrom string
@@ -173,7 +180,12 @@ var addCmd = &cobra.Command{
 			}
 		}
 
-		addCmd := gwt.NewAddCommand(cfg, gwt.AddOptions{Sync: sync, CarryFrom: carryFrom})
+		addCmd := gwt.NewAddCommand(cfg, gwt.AddOptions{
+			Sync:       sync,
+			CarryFrom:  carryFrom,
+			Lock:       lock,
+			LockReason: lockReason,
+		})
 		result, err := addCmd.Run(args[0])
 		if err != nil {
 			return err
@@ -281,6 +293,8 @@ func init() {
 	addCmd.Flags().StringP("carry", "c", "", "Move uncommitted changes to new worktree (no value: from source, @: from current, <branch>: from branch)")
 	addCmd.Flags().BoolP("quiet", "q", false, "Output only the worktree path")
 	addCmd.Flags().String("source", "", "Source branch's worktree to use")
+	addCmd.Flags().Bool("lock", false, "Lock the worktree after creation")
+	addCmd.Flags().String("reason", "", "Reason for locking (requires --lock)")
 	rootCmd.AddCommand(addCmd)
 
 	listCmd.Flags().BoolP("quiet", "q", false, "Output only worktree paths")

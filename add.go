@@ -9,27 +9,33 @@ import (
 
 // AddCommand creates git worktrees with symlinks.
 type AddCommand struct {
-	FS        FileSystem
-	Git       *GitRunner
-	Config    *Config
-	Sync      bool
-	CarryFrom string
+	FS         FileSystem
+	Git        *GitRunner
+	Config     *Config
+	Sync       bool
+	CarryFrom  string
+	Lock       bool
+	LockReason string
 }
 
 // AddOptions holds options for the add command.
 type AddOptions struct {
-	Sync      bool
-	CarryFrom string // empty: no carry, non-empty: resolved path to carry from
+	Sync       bool
+	CarryFrom  string // empty: no carry, non-empty: resolved path to carry from
+	Lock       bool
+	LockReason string
 }
 
 // NewAddCommand creates a new AddCommand with the given config.
 func NewAddCommand(cfg *Config, opts AddOptions) *AddCommand {
 	return &AddCommand{
-		FS:        osFS{},
-		Git:       NewGitRunner(cfg.WorktreeSourceDir),
-		Config:    cfg,
-		Sync:      opts.Sync,
-		CarryFrom: opts.CarryFrom,
+		FS:         osFS{},
+		Git:        NewGitRunner(cfg.WorktreeSourceDir),
+		Config:     cfg,
+		Sync:       opts.Sync,
+		CarryFrom:  opts.CarryFrom,
+		Lock:       opts.Lock,
+		LockReason: opts.LockReason,
 	}
 }
 
@@ -215,6 +221,13 @@ func (c *AddCommand) createWorktree(branch, path string) ([]byte, error) {
 		}
 	} else {
 		opts = append(opts, WithCreateBranch())
+	}
+
+	if c.Lock {
+		opts = append(opts, WithLock())
+		if c.LockReason != "" {
+			opts = append(opts, WithLockReason(c.LockReason))
+		}
 	}
 
 	output, err := c.Git.WorktreeAdd(path, branch, opts...)

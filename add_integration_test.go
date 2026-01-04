@@ -802,4 +802,87 @@ worktree_destination_base_dir = %q
 			t.Errorf("worktree directory does not exist: %s", wtPath)
 		}
 	})
+
+	t.Run("LockWorktree", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		gwtDir := filepath.Join(mainDir, ".gwt")
+		if err := os.MkdirAll(gwtDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		settingsContent := fmt.Sprintf(`worktree_source_dir = %q
+worktree_destination_base_dir = %q
+`, mainDir, repoDir)
+		if err := os.WriteFile(filepath.Join(gwtDir, "settings.toml"), []byte(settingsContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := &AddCommand{
+			FS:     osFS{},
+			Git:    NewGitRunner(mainDir),
+			Config: result.Config,
+			Lock:   true,
+		}
+
+		_, err = cmd.Run("feature/locked")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		// Verify worktree is locked
+		out := testutil.RunGit(t, mainDir, "worktree", "list", "--porcelain")
+		if !strings.Contains(out, "locked") {
+			t.Errorf("worktree should be locked, got: %s", out)
+		}
+	})
+
+	t.Run("LockWorktreeWithReason", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		gwtDir := filepath.Join(mainDir, ".gwt")
+		if err := os.MkdirAll(gwtDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		settingsContent := fmt.Sprintf(`worktree_source_dir = %q
+worktree_destination_base_dir = %q
+`, mainDir, repoDir)
+		if err := os.WriteFile(filepath.Join(gwtDir, "settings.toml"), []byte(settingsContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := &AddCommand{
+			FS:         osFS{},
+			Git:        NewGitRunner(mainDir),
+			Config:     result.Config,
+			Lock:       true,
+			LockReason: "USB drive work",
+		}
+
+		_, err = cmd.Run("feature/locked-reason")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		// Verify worktree is locked with reason
+		out := testutil.RunGit(t, mainDir, "worktree", "list", "--porcelain")
+		if !strings.Contains(out, "locked USB drive work") {
+			t.Errorf("worktree should be locked with reason, got: %s", out)
+		}
+	})
 }
