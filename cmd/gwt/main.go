@@ -183,9 +183,9 @@ func newRootCmd(opts ...Option) *cobra.Command {
 	}
 
 	addCmd := &cobra.Command{
-		Use:   "add <name>",
+		Use:   "add <name> [-- <glob>...]",
 		Short: "Create a new worktree with a new branch",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MinimumNArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) >= 1 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
@@ -245,6 +245,22 @@ func newRootCmd(opts ...Option) *cobra.Command {
 			quiet, _ := cmd.Flags().GetBool("quiet")
 			lock, _ := cmd.Flags().GetBool("lock")
 			lockReason, _ := cmd.Flags().GetString("reason")
+			carryEnabled := cmd.Flags().Changed("carry")
+
+			// Parse file patterns after --
+			var carryFiles []string
+			dashPos := cmd.ArgsLenAtDash()
+			if dashPos >= 0 {
+				carryFiles = args[dashPos:]
+			} else if len(args) > 1 {
+				// Extra args without -- are not allowed
+				return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
+			}
+
+			// File patterns require --carry
+			if len(carryFiles) > 0 && !carryEnabled {
+				return fmt.Errorf("file patterns require --carry flag")
+			}
 
 			// --reason requires --lock
 			if lockReason != "" && !lock {
@@ -253,7 +269,7 @@ func newRootCmd(opts ...Option) *cobra.Command {
 
 			// Resolve CarryFrom path
 			var carryFrom string
-			if cmd.Flags().Changed("carry") {
+			if carryEnabled {
 				carryValue, _ := cmd.Flags().GetString("carry")
 				switch carryValue {
 				case "", "<source>":
@@ -276,6 +292,7 @@ func newRootCmd(opts ...Option) *cobra.Command {
 			addCmd := o.newAddCommander(cfg, gwt.AddOptions{
 				Sync:       sync,
 				CarryFrom:  carryFrom,
+				CarryFiles: carryFiles,
 				Lock:       lock,
 				LockReason: lockReason,
 			})
