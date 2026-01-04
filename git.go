@@ -45,6 +45,18 @@ func (g *GitRunner) Run(args ...string) ([]byte, error) {
 
 type worktreeAddOptions struct {
 	createBranch bool
+	lock         bool
+	lockReason   string
+}
+
+func (o worktreeAddOptions) lockArgs() []string {
+	if !o.lock {
+		return nil
+	}
+	if o.lockReason != "" {
+		return []string{"--lock", "--reason", o.lockReason}
+	}
+	return []string{"--lock"}
 }
 
 // WorktreeAddOption is a functional option for WorktreeAdd.
@@ -57,6 +69,20 @@ func WithCreateBranch() WorktreeAddOption {
 	}
 }
 
+// WithLock locks the worktree after creation.
+func WithLock() WorktreeAddOption {
+	return func(o *worktreeAddOptions) {
+		o.lock = true
+	}
+}
+
+// WithLockReason sets the reason for locking the worktree.
+func WithLockReason(reason string) WorktreeAddOption {
+	return func(o *worktreeAddOptions) {
+		o.lockReason = reason
+	}
+}
+
 // WorktreeAdd creates a new worktree at the specified path.
 func (g *GitRunner) WorktreeAdd(path, branch string, opts ...WorktreeAddOption) ([]byte, error) {
 	var o worktreeAddOptions
@@ -65,9 +91,9 @@ func (g *GitRunner) WorktreeAdd(path, branch string, opts ...WorktreeAddOption) 
 	}
 
 	if o.createBranch {
-		return g.worktreeAddWithNewBranch(branch, path)
+		return g.worktreeAddWithNewBranch(branch, path, o)
 	}
-	return g.worktreeAdd(path, branch)
+	return g.worktreeAdd(path, branch, o)
 }
 
 // BranchExists checks if a branch exists in the local repository.
@@ -275,28 +301,43 @@ func (g *GitRunner) HasChanges() (bool, error) {
 }
 
 // StashPush stashes all changes including untracked files.
+// TODO: Return stash hash to avoid race condition. See docs/tasks/fix-stash-race-condition/task.md
 func (g *GitRunner) StashPush(message string) ([]byte, error) {
 	return g.Run("stash", "push", "-u", "-m", message)
 }
 
 // StashApply applies the latest stash without dropping it.
+// TODO: Accept hash parameter to avoid race condition. See docs/tasks/fix-stash-race-condition/task.md
 func (g *GitRunner) StashApply() ([]byte, error) {
 	return g.Run("stash", "apply", "stash@{0}")
 }
 
 // StashPop pops the latest stash.
+// TODO: Accept hash parameter to avoid race condition. See docs/tasks/fix-stash-race-condition/task.md
 func (g *GitRunner) StashPop() ([]byte, error) {
 	return g.Run("stash", "pop")
 }
 
-// private methods for git command execution
-
-func (g *GitRunner) worktreeAdd(path, branch string) ([]byte, error) {
-	return g.Run("worktree", "add", path, branch)
+// StashDrop drops the latest stash without applying it.
+// TODO: Accept hash parameter to avoid race condition. See docs/tasks/fix-stash-race-condition/task.md
+func (g *GitRunner) StashDrop() ([]byte, error) {
+	return g.Run("stash", "drop", "stash@{0}")
 }
 
-func (g *GitRunner) worktreeAddWithNewBranch(branch, path string) ([]byte, error) {
-	return g.Run("worktree", "add", "-b", branch, path)
+// private methods for git command execution
+
+func (g *GitRunner) worktreeAdd(path, branch string, o worktreeAddOptions) ([]byte, error) {
+	args := []string{"worktree", "add"}
+	args = append(args, o.lockArgs()...)
+	args = append(args, path, branch)
+	return g.Run(args...)
+}
+
+func (g *GitRunner) worktreeAddWithNewBranch(branch, path string, o worktreeAddOptions) ([]byte, error) {
+	args := []string{"worktree", "add"}
+	args = append(args, o.lockArgs()...)
+	args = append(args, "-b", branch, path)
+	return g.Run(args...)
 }
 
 func (g *GitRunner) worktreeListPorcelain() ([]byte, error) {
