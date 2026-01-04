@@ -18,7 +18,7 @@ func TestAddCommand_Integration(t *testing.T) {
 	t.Run("FullWorkflow", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t)
+		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks(".envrc"))
 
 		if err := os.WriteFile(filepath.Join(mainDir, ".envrc"), []byte("# envrc"), 0644); err != nil {
 			t.Fatal(err)
@@ -131,7 +131,7 @@ func TestAddCommand_Integration(t *testing.T) {
 	t.Run("ExistingBranch", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		testutil.RunGit(t, mainDir, "branch", "existing-branch")
 
@@ -160,7 +160,7 @@ func TestAddCommand_Integration(t *testing.T) {
 	t.Run("BranchAlreadyCheckedOut", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		testutil.RunGit(t, mainDir, "worktree", "add", filepath.Join(repoDir, "other-wt"), "-b", "test-branch")
 
@@ -402,7 +402,7 @@ worktree_destination_base_dir = %q
 	t.Run("SyncUncommittedChanges", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Commit .gwt/settings.toml first
 		testutil.RunGit(t, mainDir, "add", ".gwt")
@@ -465,7 +465,7 @@ worktree_destination_base_dir = %q
 	t.Run("CarryUncommittedChanges", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Commit .gwt/settings.toml first
 		testutil.RunGit(t, mainDir, "add", ".gwt")
@@ -530,7 +530,7 @@ worktree_destination_base_dir = %q
 	t.Run("CarryFromDifferentWorktree", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Commit .gwt/settings.toml first
 		testutil.RunGit(t, mainDir, "add", ".gwt")
@@ -606,7 +606,7 @@ worktree_destination_base_dir = %q
 	t.Run("SyncWithNoChanges", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Commit .gwt/settings.toml to ensure no uncommitted changes
 		testutil.RunGit(t, mainDir, "add", ".gwt")
@@ -644,7 +644,7 @@ worktree_destination_base_dir = %q
 	t.Run("QuietOutputsOnlyPath", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		result, err := LoadConfig(mainDir)
 		if err != nil {
@@ -684,7 +684,7 @@ worktree_destination_base_dir = %q
 	t.Run("LockWorktree", func(t *testing.T) {
 		t.Parallel()
 
-		_, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		_, mainDir := testutil.SetupTestRepo(t)
 
 		result, err := LoadConfig(mainDir)
 		if err != nil {
@@ -713,7 +713,7 @@ worktree_destination_base_dir = %q
 	t.Run("LockWorktreeWithReason", func(t *testing.T) {
 		t.Parallel()
 
-		_, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		_, mainDir := testutil.SetupTestRepo(t)
 
 		result, err := LoadConfig(mainDir)
 		if err != nil {

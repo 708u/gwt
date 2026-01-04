@@ -13,7 +13,6 @@ import (
 	"github.com/708u/gwt/internal/testutil"
 )
 
-// All tests use testutil.Symlinks() because they don't need symlink patterns.
 
 func TestRemoveCommand_Integration(t *testing.T) {
 	t.Parallel()
@@ -21,7 +20,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("RemoveWorktreeAndBranch", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "to-remove")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/to-remove", wtPath)
@@ -65,7 +64,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("DryRun", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "dry-run-test")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/dry-run-test", wtPath)
@@ -104,7 +103,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("ForceRemoveWithUncommittedChanges", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "force-test")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/force-test", wtPath)
@@ -156,7 +155,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("ErrorWithHintForLockedWorktree", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "locked-test")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/locked-test", wtPath)
@@ -204,7 +203,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("ErrorWhenInsideWorktree", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "inside-test")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/inside-test", wtPath)
@@ -232,7 +231,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("ErrorBranchNotInWorktree", func(t *testing.T) {
 		t.Parallel()
 
-		_, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		_, mainDir := testutil.SetupTestRepo(t)
 
 		testutil.RunGit(t, mainDir, "branch", "orphan-branch")
 
@@ -259,7 +258,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("RemoveMultipleWorktrees", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create multiple worktrees
 		branches := []string{"feature/multi-a", "feature/multi-b", "feature/multi-c"}
@@ -318,7 +317,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("RemoveMultipleWithPartialFailure", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create one valid worktree
 		validBranch := "feature/valid"
@@ -379,7 +378,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("CleanupEmptyParentDirs", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create a deeply nested worktree (3 levels) to verify arbitrary depth cleanup
 		wtPath := filepath.Join(repoDir, "feat", "nested", "very", "deep")
@@ -434,7 +433,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("PreserveNonEmptyParentDirs", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create two worktrees in same parent
 		wtPath1 := filepath.Join(repoDir, "feat", "test1")
@@ -496,7 +495,7 @@ func TestRemoveCommand_Integration(t *testing.T) {
 	t.Run("DryRunShowsCleanupInfo", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create a nested worktree
 		wtPath := filepath.Join(repoDir, "feat", "dry-cleanup")

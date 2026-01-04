@@ -18,7 +18,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("FindsMergedCandidates", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create a merged branch
 		wtPath := filepath.Join(repoDir, "feature", "merged")
@@ -69,7 +69,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("SkipsUnmergedBranches", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create an unmerged branch
 		wtPath := filepath.Join(repoDir, "feature", "unmerged")
@@ -115,7 +115,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("SkipsBranchWithChanges", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create a branch (already merged since no new commits)
 		wtPath := filepath.Join(repoDir, "feature", "with-changes")
@@ -159,7 +159,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("SkipsLockedWorktrees", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "locked")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/locked", wtPath)
@@ -199,7 +199,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("SkipsCurrentDirectory", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "current")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/current", wtPath)
@@ -242,7 +242,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("ExecutesWithYesFlag", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create a merged branch
 		wtPath := filepath.Join(repoDir, "feature", "to-clean")
@@ -290,7 +290,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("UsesTargetFlag", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create a develop branch
 		developPath := filepath.Join(repoDir, "develop")
@@ -344,7 +344,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("AutoDetectsTarget", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "test")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/test", wtPath)
@@ -374,7 +374,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("CleansMultipleWorktrees", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		// Create multiple merged branches
 		branches := []string{"feature/clean-a", "feature/clean-b", "feature/clean-c"}
@@ -416,7 +416,7 @@ func TestCleanCommand_Integration(t *testing.T) {
 	t.Run("CheckModeDoesNotRemove", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks())
+		repoDir, mainDir := testutil.SetupTestRepo(t)
 
 		wtPath := filepath.Join(repoDir, "feature", "check-mode")
 		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/check-mode", wtPath)

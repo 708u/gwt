@@ -12,10 +12,9 @@ import (
 type SetupOption func(*setupConfig)
 
 type setupConfig struct {
-	skipSettings   bool
-	symlinks       []string
-	symlinksCalled bool
-	defaultSource  string
+	skipSettings  bool
+	symlinks      []string
+	defaultSource string
 }
 
 // WithoutSettings skips creating .gwt/settings.toml.
@@ -26,10 +25,9 @@ func WithoutSettings() SetupOption {
 }
 
 // Symlinks sets the symlinks patterns for settings.toml.
-// If not called, defaults to [".envrc"].
+// If not called, no symlinks are configured.
 func Symlinks(patterns ...string) SetupOption {
 	return func(c *setupConfig) {
-		c.symlinksCalled = true
 		c.symlinks = patterns
 	}
 }
@@ -44,8 +42,9 @@ func DefaultSource(branch string) SetupOption {
 // SetupTestRepo creates a temporary git repository for testing.
 // Returns repoDir (parent directory) and mainDir (git repository root).
 //
-// By default, creates .gwt/settings.toml with symlinks = [".envrc"].
-// Use WithoutSettings() to skip creating settings.
+// By default, creates .gwt/settings.toml without symlinks.
+// Use Symlinks(...) to add symlink patterns.
+// Use WithoutSettings() to skip creating settings entirely.
 func SetupTestRepo(t *testing.T, opts ...SetupOption) (repoDir, mainDir string) {
 	t.Helper()
 
@@ -85,17 +84,12 @@ func createSettings(t *testing.T, repoDir, mainDir string, cfg *setupConfig) {
 		t.Fatal(err)
 	}
 
-	symlinks := cfg.symlinks
-	if !cfg.symlinksCalled {
-		symlinks = []string{".envrc"}
-	}
-
 	content := fmt.Sprintf("worktree_source_dir = %q\n", mainDir)
 	content += fmt.Sprintf("worktree_destination_base_dir = %q\n", repoDir)
 
-	if len(symlinks) > 0 {
+	if len(cfg.symlinks) > 0 {
 		content += "symlinks = ["
-		for i, s := range symlinks {
+		for i, s := range cfg.symlinks {
 			if i > 0 {
 				content += ", "
 			}

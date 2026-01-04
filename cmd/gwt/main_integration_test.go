@@ -18,7 +18,7 @@ func TestAddCommand_SourceFlag_Integration(t *testing.T) {
 	t.Run("SourceBranchWorktree", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t)
+		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.Symlinks(".envrc"))
 
 		// Commit the settings (but not .envrc - it should be symlinked, not tracked)
 		testutil.RunGit(t, mainDir, "add", ".gwt")
@@ -174,7 +174,9 @@ func TestAddCommand_DefaultSource_Integration(t *testing.T) {
 	t.Run("DefaultSourceAppliedWhenNoCliArg", func(t *testing.T) {
 		t.Parallel()
 
-		repoDir, mainDir := testutil.SetupTestRepo(t, testutil.DefaultSource("main"))
+		repoDir, mainDir := testutil.SetupTestRepo(t,
+			testutil.Symlinks(".envrc"),
+			testutil.DefaultSource("main"))
 
 		// Commit the settings
 		testutil.RunGit(t, mainDir, "add", ".gwt")
