@@ -240,27 +240,24 @@ func (c *CleanCommand) resolveTarget(target string) (string, error) {
 }
 
 // checkSkipReason checks if worktree should be skipped and returns the reason.
-// force level controls which conditions can be bypassed:
-//   - WorktreeForceLevelNone: all conditions apply
-//   - WorktreeForceLevelUnclean (-f): bypass HasChanges, NotMerged
-//   - WorktreeForceLevelLocked (-ff): also bypass Locked
+// force level controls which conditions can be bypassed (matches git worktree behavior).
 func (c *CleanCommand) checkSkipReason(wt WorktreeInfo, cwd, target string, force WorktreeForceLevel) SkipReason {
-	// Check detached HEAD (never bypassed - RemoveCommand requires branch name)
+	// Check detached HEAD (never bypassed)
 	if wt.Detached {
 		return SkipDetached
 	}
 
-	// Check current directory (never bypassed - dangerous to remove cwd)
+	// Check current directory (never bypassed)
 	if strings.HasPrefix(cwd, wt.Path) {
 		return SkipCurrentDir
 	}
 
-	// Check locked (bypassed with -ff)
+	// Check locked
 	if wt.Locked && force < WorktreeForceLevelLocked {
 		return SkipLocked
 	}
 
-	// Check uncommitted changes (bypassed with -f)
+	// Check uncommitted changes
 	if force < WorktreeForceLevelUnclean {
 		gitInDir := c.Git.InDir(wt.Path)
 		hasChanges, err := gitInDir.HasChanges()
@@ -269,7 +266,7 @@ func (c *CleanCommand) checkSkipReason(wt WorktreeInfo, cwd, target string, forc
 		}
 	}
 
-	// Check merged (bypassed with -f)
+	// Check merged
 	if force < WorktreeForceLevelUnclean {
 		merged, err := c.Git.IsBranchMerged(wt.Branch, target)
 		if err != nil || !merged {
