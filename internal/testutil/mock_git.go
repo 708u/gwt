@@ -53,6 +53,9 @@ type MockGitExecutor struct {
 
 	// StashPopErr is returned when stash pop is called.
 	StashPopErr error
+
+	// StashDropErr is returned when stash drop is called.
+	StashDropErr error
 }
 
 func (m *MockGitExecutor) Run(args ...string) ([]byte, error) {
@@ -201,6 +204,8 @@ func (m *MockGitExecutor) handleStash(args []string) ([]byte, error) {
 		return nil, m.StashApplyErr
 	case "pop":
 		return nil, m.StashPopErr
+	case "drop":
+		return nil, m.StashDropErr
 	}
 	return nil, nil
 }
