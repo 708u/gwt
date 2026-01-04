@@ -141,8 +141,8 @@ func TestRemoveCommand_Integration(t *testing.T) {
 			t.Error("GitError.Hint() should return hint for uncommitted changes")
 		}
 
-		// Now verify --force succeeds
-		_, err = cmd.Run("feature/force-test", mainDir, RemoveOptions{Force: true})
+		// Now verify -f (WorktreeForceLevelUnclean) succeeds for uncommitted changes
+		_, err = cmd.Run("feature/force-test", mainDir, RemoveOptions{Force: WorktreeForceLevelUnclean})
 		if err != nil {
 			t.Fatalf("Run with force failed: %v", err)
 		}
@@ -192,11 +192,33 @@ func TestRemoveCommand_Integration(t *testing.T) {
 			t.Errorf("GitError.Hint() = %q, want %q", hint, expectedHint)
 		}
 
-		// Cleanup: unlock and force remove
-		testutil.RunGit(t, mainDir, "worktree", "unlock", wtPath)
-		_, err = cmd.Run("feature/locked-test", mainDir, RemoveOptions{Force: true})
+		// Verify worktree is still locked
+		out := testutil.RunGit(t, mainDir, "worktree", "list", "--porcelain")
+		if !strings.Contains(out, "locked") {
+			t.Fatalf("worktree should still be locked: %s", out)
+		}
+
+		// Verify -f (WorktreeForceLevelUnclean) still fails for locked worktree
+		_, err = cmd.Run("feature/locked-test", mainDir, RemoveOptions{Force: WorktreeForceLevelUnclean})
+		if err == nil {
+			t.Fatal("expected error for locked worktree with single -f")
+		}
+
+		// Now verify -ff (WorktreeForceLevelLocked) removes the locked worktree
+		_, err = cmd.Run("feature/locked-test", mainDir, RemoveOptions{Force: WorktreeForceLevelLocked})
 		if err != nil {
-			t.Fatalf("cleanup failed: %v", err)
+			t.Fatalf("force remove of locked worktree with -ff failed: %v", err)
+		}
+
+		// Verify worktree is removed
+		if _, err := os.Stat(wtPath); !os.IsNotExist(err) {
+			t.Errorf("locked worktree should be removed: %s", wtPath)
+		}
+
+		// Verify branch is deleted
+		out = testutil.RunGit(t, mainDir, "branch", "--list", "feature/locked-test")
+		if strings.TrimSpace(out) != "" {
+			t.Errorf("branch should be deleted, got: %s", out)
 		}
 	})
 
