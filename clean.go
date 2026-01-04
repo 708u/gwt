@@ -187,10 +187,7 @@ func (c *CleanCommand) Run(cwd string, opts CleanOptions) (CleanResult, error) {
 	// Determine force level for RemoveCommand.
 	// At minimum use Unclean since clean already validated conditions.
 	// Use higher level if clean was invoked with -ff to handle locked worktrees.
-	removeForce := opts.Force
-	if removeForce < WorktreeForceLevelUnclean {
-		removeForce = WorktreeForceLevelUnclean
-	}
+	removeForce := max(opts.Force, WorktreeForceLevelUnclean)
 
 	for _, candidate := range result.Candidates {
 		if candidate.Skipped {
