@@ -577,7 +577,7 @@ func TestGitError_Hint(t *testing.T) {
 			name: "locked_worktree",
 			gitErr: &GitError{
 				Op:     OpWorktreeRemove,
-				Stderr: "fatal: worktree is locked",
+				Stderr: "fatal: cannot remove a locked working tree",
 			},
 			want: "run 'git worktree unlock <path>' first, or use 'gwt remove --force'",
 		},
@@ -671,7 +671,7 @@ func TestRemoveResult_Format_WithHint(t *testing.T) {
 					Branch: "feature/a",
 					Err: &GitError{
 						Op:     OpWorktreeRemove,
-						Stderr: "fatal: worktree is locked",
+						Stderr: "fatal: cannot remove a locked working tree",
 					},
 				}},
 			},

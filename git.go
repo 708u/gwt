@@ -62,7 +62,7 @@ func (e *GitError) Hint() string {
 	switch {
 	case strings.Contains(e.Stderr, "modified or untracked files"):
 		return "use 'gwt remove --force' to force removal"
-	case strings.Contains(e.Stderr, "is locked"):
+	case strings.Contains(e.Stderr, "locked working tree"):
 		return "run 'git worktree unlock <path>' first, or use 'gwt remove --force'"
 	default:
 		return ""
