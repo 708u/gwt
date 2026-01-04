@@ -78,7 +78,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 		for _, w := range result.Warnings {
-			fmt.Fprintln(os.Stderr, "warning:", w)
+			fmt.Fprintln(cmd.ErrOrStderr(), "warning:", w)
 		}
 		cfg = result.Config
 		return nil
@@ -137,7 +137,7 @@ var addCmd = &cobra.Command{
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 		for _, w := range result.Warnings {
-			fmt.Fprintln(os.Stderr, "warning:", w)
+			fmt.Fprintln(cmd.ErrOrStderr(), "warning:", w)
 		}
 		cfg = result.Config
 		return nil
@@ -192,9 +192,9 @@ var addCmd = &cobra.Command{
 			Quiet:   quiet,
 		})
 		if formatted.Stderr != "" {
-			fmt.Fprint(os.Stderr, formatted.Stderr)
+			fmt.Fprint(cmd.ErrOrStderr(), formatted.Stderr)
 		}
-		fmt.Fprint(os.Stdout, formatted.Stdout)
+		fmt.Fprint(cmd.OutOrStdout(), formatted.Stdout)
 		return nil
 	},
 }
@@ -212,7 +212,7 @@ var listCmd = &cobra.Command{
 		}
 
 		formatted := result.Format(gwt.ListFormatOptions{Quiet: quiet})
-		fmt.Fprint(os.Stdout, formatted.Stdout)
+		fmt.Fprint(cmd.OutOrStdout(), formatted.Stdout)
 		return nil
 	},
 }
@@ -255,23 +255,23 @@ Safety checks (all must pass):
 		if check || result.CleanableCount() == 0 {
 			formatted := result.Format(gwt.FormatOptions{Verbose: verbose})
 			if formatted.Stderr != "" {
-				fmt.Fprint(os.Stderr, formatted.Stderr)
+				fmt.Fprint(cmd.ErrOrStderr(), formatted.Stderr)
 			}
-			fmt.Fprint(os.Stdout, formatted.Stdout)
+			fmt.Fprint(cmd.OutOrStdout(), formatted.Stdout)
 			return nil
 		}
 
 		// Show candidates
 		formatted := result.Format(gwt.FormatOptions{Verbose: verbose})
 		if formatted.Stderr != "" {
-			fmt.Fprint(os.Stderr, formatted.Stderr)
+			fmt.Fprint(cmd.ErrOrStderr(), formatted.Stderr)
 		}
-		fmt.Fprint(os.Stdout, formatted.Stdout)
+		fmt.Fprint(cmd.OutOrStdout(), formatted.Stdout)
 
 		// If not --yes, prompt for confirmation
 		if !yes {
-			fmt.Print("\nProceed? [y/N]: ")
-			reader := bufio.NewReader(os.Stdin)
+			fmt.Fprint(cmd.OutOrStdout(), "\nProceed? [y/N]: ")
+			reader := bufio.NewReader(cmd.InOrStdin())
 			input, err := reader.ReadString('\n')
 			if err != nil {
 				return err
@@ -294,9 +294,9 @@ Safety checks (all must pass):
 
 		formatted = result.Format(gwt.FormatOptions{Verbose: verbose})
 		if formatted.Stderr != "" {
-			fmt.Fprint(os.Stderr, formatted.Stderr)
+			fmt.Fprint(cmd.ErrOrStderr(), formatted.Stderr)
 		}
-		fmt.Fprint(os.Stdout, formatted.Stdout)
+		fmt.Fprint(cmd.OutOrStdout(), formatted.Stdout)
 		return nil
 	},
 }
@@ -354,9 +354,9 @@ stop processing of remaining branches.`,
 
 		formatted := result.Format(gwt.FormatOptions{Verbose: verbose})
 		if formatted.Stderr != "" {
-			fmt.Fprint(os.Stderr, formatted.Stderr)
+			fmt.Fprint(cmd.ErrOrStderr(), formatted.Stderr)
 		}
-		fmt.Fprint(os.Stdout, formatted.Stdout)
+		fmt.Fprint(cmd.OutOrStdout(), formatted.Stdout)
 
 		if result.HasErrors() {
 			return fmt.Errorf("failed to remove %d branch(es)", result.ErrorCount())
@@ -392,7 +392,7 @@ func init() {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "gwt:", err)
+		fmt.Fprintln(rootCmd.ErrOrStderr(), "gwt:", err)
 		os.Exit(1)
 	}
 }
