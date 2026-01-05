@@ -16,6 +16,7 @@ type FileSystem interface {
 	MkdirAll(path string, perm fs.FileMode) error
 	ReadDir(name string) ([]os.DirEntry, error)
 	Remove(name string) error
+	WriteFile(name string, data []byte, perm fs.FileMode) error
 }
 
 type osFS struct{}
@@ -29,3 +30,6 @@ func (osFS) Glob(dir, pattern string) ([]string, error) {
 func (osFS) MkdirAll(path string, perm fs.FileMode) error { return os.MkdirAll(path, perm) }
 func (osFS) ReadDir(name string) ([]os.DirEntry, error)   { return os.ReadDir(name) }
 func (osFS) Remove(name string) error                     { return os.Remove(name) }
+func (osFS) WriteFile(name string, data []byte, perm fs.FileMode) error {
+	return os.WriteFile(name, data, perm)
+}

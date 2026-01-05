@@ -32,11 +32,17 @@ type RemoveCommander interface {
 	Run(branch string, cwd string, opts gwt.RemoveOptions) (gwt.RemovedWorktree, error)
 }
 
+// InitCommander defines the interface for init operations.
+type InitCommander interface {
+	Run(dir string, opts gwt.InitOptions) (gwt.InitResult, error)
+}
+
 type options struct {
 	addCommander    AddCommander    // nil = use default
 	cleanCommander  CleanCommander  // nil = use default
 	listCommander   ListCommander   // nil = use default
 	removeCommander RemoveCommander // nil = use default
+	initCommander   InitCommander   // nil = use default
 }
 
 // Option configures newRootCmd.
@@ -67,6 +73,13 @@ func WithListCommander(cmd ListCommander) Option {
 func WithRemoveCommander(cmd RemoveCommander) Option {
 	return func(o *options) {
 		o.removeCommander = cmd
+	}
+}
+
+// WithInitCommander sets the InitCommander instance for testing.
+func WithInitCommander(cmd InitCommander) Option {
+	return func(o *options) {
+		o.initCommander = cmd
 	}
 }
 
@@ -542,6 +555,49 @@ stop processing of remaining branches.`,
 	removeCmd.Flags().CountP("force", "f", "Force removal (-f: uncommitted/unmerged, -ff: also locked)")
 	removeCmd.Flags().Bool("dry-run", false, "Show what would be removed without making changes")
 	rootCmd.AddCommand(removeCmd)
+
+	initCmd := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize gwt configuration",
+		Long:  `Create a .gwt/settings.toml configuration file in the current directory.`,
+		Args:  cobra.NoArgs,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Override parent's PersistentPreRunE to skip config loading
+			// since init creates the config file
+			var err error
+			originalCwd, err = os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current directory: %w", err)
+			}
+
+			cwd, err = resolveDirectory(dirFlag, originalCwd)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			force, _ := cmd.Flags().GetBool("force")
+
+			var initCommand InitCommander
+			if o.initCommander != nil {
+				initCommand = o.initCommander
+			} else {
+				initCommand = gwt.NewDefaultInitCommand()
+			}
+			result, err := initCommand.Run(cwd, gwt.InitOptions{Force: force})
+			if err != nil {
+				return err
+			}
+
+			formatted := result.Format(gwt.InitFormatOptions{})
+			fmt.Fprint(cmd.OutOrStdout(), formatted.Stdout)
+			return nil
+		},
+	}
+	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing configuration file")
+	rootCmd.AddCommand(initCmd)
 
 	return rootCmd
 }

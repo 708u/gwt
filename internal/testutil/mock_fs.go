@@ -10,13 +10,14 @@ import (
 // MockFS is a mock implementation of gwt.FileSystem for testing.
 type MockFS struct {
 	// Override functions (takes precedence if set)
-	StatFunc       func(name string) (fs.FileInfo, error)
-	SymlinkFunc    func(oldname, newname string) error
+	StatFunc      func(name string) (fs.FileInfo, error)
+	SymlinkFunc   func(oldname, newname string) error
 	IsNotExistFunc func(err error) bool
-	GlobFunc       func(dir, pattern string) ([]string, error)
-	MkdirAllFunc   func(path string, perm fs.FileMode) error
-	ReadDirFunc    func(name string) ([]os.DirEntry, error)
-	RemoveFunc     func(name string) error
+	GlobFunc      func(dir, pattern string) ([]string, error)
+	MkdirAllFunc  func(path string, perm fs.FileMode) error
+	ReadDirFunc   func(name string) ([]os.DirEntry, error)
+	RemoveFunc    func(name string) error
+	WriteFileFunc func(name string, data []byte, perm fs.FileMode) error
 
 	// ExistingPaths is a list of paths that exist (Stat returns nil, nil).
 	ExistingPaths []string
@@ -41,6 +42,12 @@ type MockFS struct {
 
 	// RemoveErr is returned by Remove if set.
 	RemoveErr error
+
+	// WriteFileErr is returned by WriteFile if set.
+	WriteFileErr error
+
+	// WrittenFiles records files written by WriteFile.
+	WrittenFiles map[string][]byte
 }
 
 func (m *MockFS) Stat(name string) (fs.FileInfo, error) {
@@ -107,4 +114,14 @@ func (m *MockFS) Remove(name string) error {
 		return m.RemoveFunc(name)
 	}
 	return m.RemoveErr
+}
+
+func (m *MockFS) WriteFile(name string, data []byte, perm fs.FileMode) error {
+	if m.WriteFileFunc != nil {
+		return m.WriteFileFunc(name, data, perm)
+	}
+	if m.WrittenFiles != nil {
+		m.WrittenFiles[name] = data
+	}
+	return m.WriteFileErr
 }
