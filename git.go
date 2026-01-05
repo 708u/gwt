@@ -1,6 +1,7 @@
 package gwt
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -17,6 +18,69 @@ type osGitExecutor struct{}
 
 func (e osGitExecutor) Run(args ...string) ([]byte, error) {
 	return exec.Command("git", args...).Output()
+}
+
+// GitOp represents the type of git operation.
+type GitOp int
+
+const (
+	OpWorktreeRemove GitOp = iota + 1
+	OpBranchDelete
+)
+
+func (op GitOp) String() string {
+	switch op {
+	case OpWorktreeRemove:
+		return "remove worktree"
+	case OpBranchDelete:
+		return "delete branch"
+	default:
+		return "unknown operation"
+	}
+}
+
+// GitError represents an error from a git operation with structured information.
+type GitError struct {
+	Op     GitOp
+	Stderr string
+	Err    error
+}
+
+func (e *GitError) Error() string {
+	if e.Stderr != "" {
+		return fmt.Sprintf("failed to %s: %v: %s", e.Op, e.Err, e.Stderr)
+	}
+	return fmt.Sprintf("failed to %s: %v", e.Op, e.Err)
+}
+
+func (e *GitError) Unwrap() error {
+	return e.Err
+}
+
+// Hint returns a helpful hint message based on the error content.
+func (e *GitError) Hint() string {
+	switch {
+	case strings.Contains(e.Stderr, "modified or untracked files"):
+		return "use 'gwt remove --force' to force removal"
+	case strings.Contains(e.Stderr, "locked working tree"):
+		return "run 'git worktree unlock <path>' first, or use 'gwt remove --force'"
+	default:
+		return ""
+	}
+}
+
+// newGitError creates a GitError from a git operation error.
+// It extracts stderr from exec.ExitError if available.
+func newGitError(op GitOp, err error) *GitError {
+	gitErr := &GitError{
+		Op:  op,
+		Err: err,
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+		gitErr.Stderr = strings.TrimSpace(string(exitErr.Stderr))
+	}
+	return gitErr
 }
 
 // GitRunner provides git operations using GitExecutor.
@@ -45,6 +109,18 @@ func (g *GitRunner) Run(args ...string) ([]byte, error) {
 
 type worktreeAddOptions struct {
 	createBranch bool
+	lock         bool
+	lockReason   string
+}
+
+func (o worktreeAddOptions) lockArgs() []string {
+	if !o.lock {
+		return nil
+	}
+	if o.lockReason != "" {
+		return []string{"--lock", "--reason", o.lockReason}
+	}
+	return []string{"--lock"}
 }
 
 // WorktreeAddOption is a functional option for WorktreeAdd.
@@ -57,6 +133,20 @@ func WithCreateBranch() WorktreeAddOption {
 	}
 }
 
+// WithLock locks the worktree after creation.
+func WithLock() WorktreeAddOption {
+	return func(o *worktreeAddOptions) {
+		o.lock = true
+	}
+}
+
+// WithLockReason sets the reason for locking the worktree.
+func WithLockReason(reason string) WorktreeAddOption {
+	return func(o *worktreeAddOptions) {
+		o.lockReason = reason
+	}
+}
+
 // WorktreeAdd creates a new worktree at the specified path.
 func (g *GitRunner) WorktreeAdd(path, branch string, opts ...WorktreeAddOption) ([]byte, error) {
 	var o worktreeAddOptions
@@ -65,9 +155,9 @@ func (g *GitRunner) WorktreeAdd(path, branch string, opts ...WorktreeAddOption) 
 	}
 
 	if o.createBranch {
-		return g.worktreeAddWithNewBranch(branch, path)
+		return g.worktreeAddWithNewBranch(branch, path, o)
 	}
-	return g.worktreeAdd(path, branch)
+	return g.worktreeAdd(path, branch, o)
 }
 
 // BranchExists checks if a branch exists in the local repository.
@@ -207,17 +297,30 @@ func (g *GitRunner) WorktreeFindByBranch(branch string) (string, error) {
 	return "", fmt.Errorf("branch %q is not checked out in any worktree", branch)
 }
 
+// WorktreeForceLevel represents the force level for worktree removal.
+// Matches git worktree remove behavior.
+type WorktreeForceLevel uint8
+
+const (
+	// WorktreeForceLevelNone means no force - fail on uncommitted changes or locked.
+	WorktreeForceLevelNone WorktreeForceLevel = iota
+	// WorktreeForceLevelUnclean removes unclean worktrees (-f).
+	WorktreeForceLevelUnclean
+	// WorktreeForceLevelLocked also removes locked worktrees (-f -f).
+	WorktreeForceLevelLocked
+)
+
 type worktreeRemoveOptions struct {
-	force bool
+	forceLevel WorktreeForceLevel
 }
 
 // WorktreeRemoveOption is a functional option for WorktreeRemove.
 type WorktreeRemoveOption func(*worktreeRemoveOptions)
 
-// WithForceRemove forces worktree removal even if there are uncommitted changes.
-func WithForceRemove() WorktreeRemoveOption {
+// WithForceRemove forces worktree removal.
+func WithForceRemove(level WorktreeForceLevel) WorktreeRemoveOption {
 	return func(o *worktreeRemoveOptions) {
-		o.force = true
+		o.forceLevel = level
 	}
 }
 
@@ -229,9 +332,9 @@ func (g *GitRunner) WorktreeRemove(path string, opts ...WorktreeRemoveOption) ([
 		opt(&o)
 	}
 
-	out, err := g.worktreeRemove(path, o.force)
+	out, err := g.worktreeRemove(path, o.forceLevel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to remove worktree: %w", err)
+		return nil, newGitError(OpWorktreeRemove, err)
 	}
 	return out, nil
 }
@@ -260,7 +363,7 @@ func (g *GitRunner) BranchDelete(branch string, opts ...BranchDeleteOption) ([]b
 
 	out, err := g.branchDelete(branch, o.force)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete branch: %w", err)
+		return nil, newGitError(OpBranchDelete, err)
 	}
 	return out, nil
 }
@@ -275,37 +378,82 @@ func (g *GitRunner) HasChanges() (bool, error) {
 }
 
 // StashPush stashes all changes including untracked files.
-func (g *GitRunner) StashPush(message string) ([]byte, error) {
-	return g.Run("stash", "push", "-u", "-m", message)
+// Returns the stash commit hash for later reference.
+//
+// Race condition note:
+// There is a small race window between "stash push" and "rev-parse stash@{0}".
+// If another process creates a stash in this window, we may get the wrong hash.
+// However, this window is very small (milliseconds) and acceptable in practice.
+//
+// Why not use "stash create" + "stash store" pattern?
+// "stash create" does not support -u/--include-untracked option (git limitation).
+// It can only stash tracked file changes, not untracked files.
+// See: https://git-scm.com/docs/git-stash
+func (g *GitRunner) StashPush(message string) (string, error) {
+	if _, err := g.Run("stash", "push", "-u", "-m", message); err != nil {
+		return "", err
+	}
+	out, err := g.Run("rev-parse", "stash@{0}")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
-// StashApply applies the latest stash without dropping it.
-func (g *GitRunner) StashApply() ([]byte, error) {
-	return g.Run("stash", "apply", "stash@{0}")
+// StashApplyByHash applies the stash with the given hash without dropping it.
+func (g *GitRunner) StashApplyByHash(hash string) ([]byte, error) {
+	return g.Run("stash", "apply", hash)
 }
 
-// StashPop pops the latest stash.
-func (g *GitRunner) StashPop() ([]byte, error) {
-	return g.Run("stash", "pop")
+// StashPopByHash applies and drops the stash with the given hash.
+func (g *GitRunner) StashPopByHash(hash string) ([]byte, error) {
+	if _, err := g.StashApplyByHash(hash); err != nil {
+		return nil, err
+	}
+	return g.StashDropByHash(hash)
+}
+
+// StashDropByHash drops the stash with the given hash.
+func (g *GitRunner) StashDropByHash(hash string) ([]byte, error) {
+	out, err := g.Run("stash", "list", "--format=%gd %H")
+	if err != nil {
+		return nil, err
+	}
+	for line := range strings.SplitSeq(string(out), "\n") {
+		if strings.HasSuffix(line, hash) {
+			ref := strings.Fields(line)[0]
+			return g.Run("stash", "drop", ref)
+		}
+	}
+	return nil, fmt.Errorf("stash not found: %s", hash)
 }
 
 // private methods for git command execution
 
-func (g *GitRunner) worktreeAdd(path, branch string) ([]byte, error) {
-	return g.Run("worktree", "add", path, branch)
+func (g *GitRunner) worktreeAdd(path, branch string, o worktreeAddOptions) ([]byte, error) {
+	args := []string{"worktree", "add"}
+	args = append(args, o.lockArgs()...)
+	args = append(args, path, branch)
+	return g.Run(args...)
 }
 
-func (g *GitRunner) worktreeAddWithNewBranch(branch, path string) ([]byte, error) {
-	return g.Run("worktree", "add", "-b", branch, path)
+func (g *GitRunner) worktreeAddWithNewBranch(branch, path string, o worktreeAddOptions) ([]byte, error) {
+	args := []string{"worktree", "add"}
+	args = append(args, o.lockArgs()...)
+	args = append(args, "-b", branch, path)
+	return g.Run(args...)
 }
 
 func (g *GitRunner) worktreeListPorcelain() ([]byte, error) {
 	return g.Run("worktree", "list", "--porcelain")
 }
 
-func (g *GitRunner) worktreeRemove(path string, force bool) ([]byte, error) {
+func (g *GitRunner) worktreeRemove(path string, forceLevel WorktreeForceLevel) ([]byte, error) {
 	args := []string{"worktree", "remove"}
-	if force {
+	// git worktree remove:
+	// -f (once): remove unclean worktree
+	// -f -f (twice): also remove locked worktree
+	for range forceLevel {
 		args = append(args, "-f")
 	}
 	args = append(args, path)
@@ -318,4 +466,27 @@ func (g *GitRunner) branchDelete(branch string, force bool) ([]byte, error) {
 		flag = "-D"
 	}
 	return g.Run("branch", flag, branch)
+}
+
+// IsBranchMerged checks if branch is merged into target.
+func (g *GitRunner) IsBranchMerged(branch, target string) (bool, error) {
+	out, err := g.Run("branch", "--merged", target, "--format=%(refname:short)")
+	if err != nil {
+		return false, fmt.Errorf("failed to check merged branches: %w", err)
+	}
+	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
+		if line == branch {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// WorktreePrune removes references to worktrees that no longer exist.
+func (g *GitRunner) WorktreePrune() ([]byte, error) {
+	out, err := g.Run("worktree", "prune")
+	if err != nil {
+		return nil, fmt.Errorf("failed to prune worktrees: %w", err)
+	}
+	return out, nil
 }

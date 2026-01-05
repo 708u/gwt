@@ -147,16 +147,16 @@ func TestRemoveCommand_Run(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		branch      string
-		cwd         string
-		opts        RemoveOptions
-		config      *Config
-		setupGit    func(t *testing.T, captured *[]string) *testutil.MockGitExecutor
-		wantErr     bool
-		errContains string
-		wantForce   bool
-		wantDryRun  bool
+		name           string
+		branch         string
+		cwd            string
+		opts           RemoveOptions
+		config         *Config
+		setupGit       func(t *testing.T, captured *[]string) *testutil.MockGitExecutor
+		wantErr        bool
+		errContains    string
+		wantForceLevel WorktreeForceLevel
+		wantDryRun     bool
 	}{
 		{
 			name:   "success",
@@ -190,10 +190,10 @@ func TestRemoveCommand_Run(t *testing.T) {
 			wantDryRun: true,
 		},
 		{
-			name:   "force",
+			name:   "force_level_unclean",
 			branch: "feature/test",
 			cwd:    "/other/dir",
-			opts:   RemoveOptions{Force: true},
+			opts:   RemoveOptions{Force: WorktreeForceLevelUnclean},
 			config: &Config{WorktreeSourceDir: "/repo/main"},
 			setupGit: func(t *testing.T, captured *[]string) *testutil.MockGitExecutor {
 				t.Helper()
@@ -202,8 +202,24 @@ func TestRemoveCommand_Run(t *testing.T) {
 					CapturedArgs: captured,
 				}
 			},
-			wantErr:   false,
-			wantForce: true,
+			wantErr:        false,
+			wantForceLevel: WorktreeForceLevelUnclean,
+		},
+		{
+			name:   "force_level_locked",
+			branch: "feature/test",
+			cwd:    "/other/dir",
+			opts:   RemoveOptions{Force: WorktreeForceLevelLocked},
+			config: &Config{WorktreeSourceDir: "/repo/main"},
+			setupGit: func(t *testing.T, captured *[]string) *testutil.MockGitExecutor {
+				t.Helper()
+				return &testutil.MockGitExecutor{
+					Worktrees:    []testutil.MockWorktree{{Path: "/repo/feature/test", Branch: "feature/test"}},
+					CapturedArgs: captured,
+				}
+			},
+			wantErr:        false,
+			wantForceLevel: WorktreeForceLevelLocked,
 		},
 		{
 			name:   "empty_branch",
@@ -332,8 +348,21 @@ func TestRemoveCommand_Run(t *testing.T) {
 				return
 			}
 
-			if tt.wantForce && !slices.Contains(captured, "-f") && !slices.Contains(captured, "-D") {
-				t.Errorf("expected force flag (-f or -D), got: %v", captured)
+			if tt.wantForceLevel > 0 {
+				// Check that -f appears the expected number of times for worktree removal
+				fCount := 0
+				for _, arg := range captured {
+					if arg == "-f" {
+						fCount++
+					}
+				}
+				if WorktreeForceLevel(fCount) != tt.wantForceLevel {
+					t.Errorf("expected -f %d time(s) for worktree removal, got %d in: %v", tt.wantForceLevel, fCount, captured)
+				}
+				// Also check -D for branch deletion
+				if !slices.Contains(captured, "-D") {
+					t.Errorf("expected -D for force branch deletion, got: %v", captured)
+				}
 			}
 		})
 	}
@@ -551,3 +580,153 @@ func (m mockDirEntry) Name() string               { return m.name }
 func (m mockDirEntry) IsDir() bool                { return m.isDir }
 func (m mockDirEntry) Type() os.FileMode          { return 0 }
 func (m mockDirEntry) Info() (os.FileInfo, error) { return nil, nil }
+
+func TestGitError_Hint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		gitErr *GitError
+		want   string
+	}{
+		{
+			name:   "nil_error",
+			gitErr: nil,
+			want:   "",
+		},
+		{
+			name: "modified_or_untracked_files",
+			gitErr: &GitError{
+				Op:     OpWorktreeRemove,
+				Stderr: "fatal: '/path' contains modified or untracked files",
+			},
+			want: "use 'gwt remove --force' to force removal",
+		},
+		{
+			name: "locked_worktree",
+			gitErr: &GitError{
+				Op:     OpWorktreeRemove,
+				Stderr: "fatal: cannot remove a locked working tree",
+			},
+			want: "run 'git worktree unlock <path>' first, or use 'gwt remove --force'",
+		},
+		{
+			name: "unknown_error",
+			gitErr: &GitError{
+				Op:     OpWorktreeRemove,
+				Stderr: "some other error",
+			},
+			want: "",
+		},
+		{
+			name: "empty_stderr",
+			gitErr: &GitError{
+				Op:     OpWorktreeRemove,
+				Stderr: "",
+			},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var got string
+			if tt.gitErr != nil {
+				got = tt.gitErr.Hint()
+			}
+			if got != tt.want {
+				t.Errorf("Hint() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRemoveResult_Format_WithHint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		result     RemoveResult
+		opts       FormatOptions
+		wantStderr string
+	}{
+		{
+			name: "git_error_with_hint_normal",
+			result: RemoveResult{
+				Removed: []RemovedWorktree{{
+					Branch: "feature/a",
+					Err: &GitError{
+						Op:     OpWorktreeRemove,
+						Stderr: "fatal: '/path' contains modified or untracked files",
+					},
+				}},
+			},
+			opts:       FormatOptions{Verbose: false},
+			wantStderr: "error: feature/a: failed to remove worktree\nhint: use 'gwt remove --force' to force removal\n",
+		},
+		{
+			name: "git_error_with_hint_verbose",
+			result: RemoveResult{
+				Removed: []RemovedWorktree{{
+					Branch: "feature/a",
+					Err: &GitError{
+						Op:     OpWorktreeRemove,
+						Stderr: "fatal: '/path' contains modified or untracked files",
+					},
+				}},
+			},
+			opts:       FormatOptions{Verbose: true},
+			wantStderr: "error: feature/a: failed to remove worktree\n       git: fatal: '/path' contains modified or untracked files\nhint: use 'gwt remove --force' to force removal\n",
+		},
+		{
+			name: "git_error_without_hint",
+			result: RemoveResult{
+				Removed: []RemovedWorktree{{
+					Branch: "feature/a",
+					Err: &GitError{
+						Op:     OpWorktreeRemove,
+						Stderr: "some other error",
+					},
+				}},
+			},
+			opts:       FormatOptions{Verbose: false},
+			wantStderr: "error: feature/a: failed to remove worktree\n",
+		},
+		{
+			name: "git_error_locked_worktree_hint",
+			result: RemoveResult{
+				Removed: []RemovedWorktree{{
+					Branch: "feature/a",
+					Err: &GitError{
+						Op:     OpWorktreeRemove,
+						Stderr: "fatal: cannot remove a locked working tree",
+					},
+				}},
+			},
+			opts:       FormatOptions{Verbose: false},
+			wantStderr: "error: feature/a: failed to remove worktree\nhint: run 'git worktree unlock <path>' first, or use 'gwt remove --force'\n",
+		},
+		{
+			name: "non_git_error_fallback",
+			result: RemoveResult{
+				Removed: []RemovedWorktree{{
+					Branch: "feature/a",
+					Err:    errors.New("branch not found"),
+				}},
+			},
+			opts:       FormatOptions{Verbose: false},
+			wantStderr: "error: feature/a: branch not found\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.result.Format(tt.opts)
+			if got.Stderr != tt.wantStderr {
+				t.Errorf("Stderr = %q, want %q", got.Stderr, tt.wantStderr)
+			}
+		})
+	}
+}

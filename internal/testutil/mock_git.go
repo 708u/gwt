@@ -48,11 +48,23 @@ type MockGitExecutor struct {
 	// StashPushErr is returned when stash push is called.
 	StashPushErr error
 
+	// StashHash is returned when stash push succeeds and used for subsequent stash operations.
+	StashHash string
+
 	// StashApplyErr is returned when stash apply is called.
 	StashApplyErr error
 
 	// StashPopErr is returned when stash pop is called.
 	StashPopErr error
+
+	// StashDropErr is returned when stash drop is called.
+	StashDropErr error
+
+	// MergedBranches maps target branch to list of branches merged into it.
+	MergedBranches map[string][]string
+
+	// WorktreePruneErr is returned when worktree prune is called.
+	WorktreePruneErr error
 }
 
 func (m *MockGitExecutor) Run(args ...string) ([]byte, error) {
@@ -84,6 +96,8 @@ func (m *MockGitExecutor) defaultRun(args ...string) ([]byte, error) {
 				return m.handleWorktreeAdd(args)
 			case "remove":
 				return m.handleWorktreeRemove(args)
+			case "prune":
+				return m.handleWorktreePrune()
 			}
 		}
 	case "branch":
@@ -97,6 +111,15 @@ func (m *MockGitExecutor) defaultRun(args ...string) ([]byte, error) {
 }
 
 func (m *MockGitExecutor) handleRevParse(args []string) ([]byte, error) {
+	// Handle stash@{0} for StashPush hash retrieval
+	if len(args) >= 2 && args[1] == "stash@{0}" {
+		hash := m.StashHash
+		if hash == "" {
+			hash = "abc123def456"
+		}
+		return []byte(hash + "\n"), nil
+	}
+
 	// args: ["rev-parse", "--verify", "refs/heads/{branch}"]
 	if len(args) < 3 {
 		return nil, nil
@@ -156,25 +179,35 @@ func (m *MockGitExecutor) handleWorktreeList() ([]byte, error) {
 
 func (m *MockGitExecutor) handleWorktreeAdd(args []string) ([]byte, error) {
 	if m.CapturedArgs != nil {
-		*m.CapturedArgs = args
+		*m.CapturedArgs = append(*m.CapturedArgs, args...)
 	}
 	return nil, m.WorktreeAddErr
 }
 
 func (m *MockGitExecutor) handleWorktreeRemove(args []string) ([]byte, error) {
 	if m.CapturedArgs != nil {
-		*m.CapturedArgs = args
+		*m.CapturedArgs = append(*m.CapturedArgs, args...)
 	}
 	return nil, m.WorktreeRemoveErr
 }
 
+func (m *MockGitExecutor) handleWorktreePrune() ([]byte, error) {
+	return nil, m.WorktreePruneErr
+}
+
 func (m *MockGitExecutor) handleBranch(args []string) ([]byte, error) {
 	if m.CapturedArgs != nil {
-		*m.CapturedArgs = args
+		*m.CapturedArgs = append(*m.CapturedArgs, args...)
 	}
 	// args: ["branch", "-d"/"-D", "branch-name"]
 	if len(args) >= 3 && (args[1] == "-d" || args[1] == "-D") {
 		return nil, m.BranchDeleteErr
+	}
+	// args: ["branch", "--merged", "target", "--format=%(refname:short)"]
+	if len(args) >= 3 && args[1] == "--merged" {
+		target := args[2]
+		branches := m.MergedBranches[target]
+		return []byte(strings.Join(branches, "\n")), nil
 	}
 	return nil, nil
 }
@@ -195,12 +228,34 @@ func (m *MockGitExecutor) handleStash(args []string) ([]byte, error) {
 		return nil, nil
 	}
 	switch args[1] {
+	case "create":
+		// stash create returns hash on stdout
+		if m.StashPushErr != nil {
+			return nil, m.StashPushErr
+		}
+		hash := m.StashHash
+		if hash == "" {
+			hash = "abc123def456"
+		}
+		return []byte(hash + "\n"), nil
+	case "store":
+		// stash store adds to reflog, no output
+		return nil, nil
 	case "push":
 		return nil, m.StashPushErr
 	case "apply":
 		return nil, m.StashApplyErr
 	case "pop":
 		return nil, m.StashPopErr
+	case "drop":
+		return nil, m.StashDropErr
+	case "list":
+		// Return stash list with format "%gd %H"
+		hash := m.StashHash
+		if hash == "" {
+			hash = "abc123def456"
+		}
+		return []byte("stash@{0} " + hash + "\n"), nil
 	}
 	return nil, nil
 }

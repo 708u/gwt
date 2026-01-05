@@ -14,11 +14,15 @@ gwt add <name> [flags]
 
 ## Flags
 
-| Flag                | Short | Description                               |
-|---------------------|-------|-------------------------------------------|
-| `--sync`            | `-s`  | Sync uncommitted changes to new worktree  |
-| `--quiet`           | `-q`  | Output only the worktree path             |
-| `--source <branch>` |       | Use specified branch's worktree as source |
+| Flag                  | Short | Description                                        |
+|-----------------------|-------|----------------------------------------------------|
+| `--sync`              | `-s`  | Sync uncommitted changes to new worktree           |
+| `--carry [<branch>]`  | `-c`  | Carry uncommitted changes (optionally from branch) |
+| `--quiet`             | `-q`  | Output only the worktree path                      |
+| `--verbose`           | `-v`  | Enable verbose output                              |
+| `--source <branch>`   |       | Use specified branch's worktree as source          |
+| `--lock`              |       | Lock the worktree after creation                   |
+| `--reason <string>`   |       | Reason for locking (requires `--lock`)             |
 
 ## Behavior
 
@@ -41,6 +45,47 @@ With `--sync`, uncommitted changes are copied to the new worktree:
 If worktree creation or stash apply fails, changes are restored
 to the source worktree automatically.
 
+### Carry Option
+
+With `--carry`, uncommitted changes are moved to the new worktree:
+
+1. Stashes changes from the specified source
+2. Creates the new worktree
+3. Applies stash to new worktree
+4. Drops the stash (source worktree becomes clean)
+
+Unlike `--sync` which copies changes to both worktrees, `--carry` moves
+changes so that only the new worktree has them.
+
+```bash
+# Move current work to a new branch (from source worktree)
+gwt add feat/new --carry
+
+# Move changes from current worktree, but base branch on main
+gwt add feat/new --source main --carry=@
+
+# Move changes from feat/a worktree
+gwt add feat/new --source main --carry=feat/a
+```
+
+The `--carry` option accepts an optional value to specify where to take
+changes from:
+
+| Value         | Description                                    |
+|---------------|------------------------------------------------|
+| (no value)    | Take changes from source worktree (default)    |
+| `@`           | Take changes from current worktree             |
+| `<branch>`    | Take changes from specified branch's worktree  |
+
+The `@` symbol follows git's HEAD alias convention, meaning "current location".
+
+If worktree creation or stash apply fails, changes are restored
+to the source worktree automatically.
+
+Constraints:
+
+- Cannot be used together with `--sync`
+
 ### Quiet Option
 
 With `--quiet`, only the worktree path is output to stdout.
@@ -55,7 +100,6 @@ When `--quiet` is specified, `--verbose` is ignored.
 ### Source Option
 
 With `--source`, uses the specified branch's worktree as the source.
-This is equivalent to `-C <path>` but accepts a branch name instead of a path.
 
 ```bash
 # From a derived worktree, create a new worktree based on main
@@ -67,11 +111,46 @@ When `--source` is specified:
 - Settings are loaded from the source branch's worktree
 - Symlinks are created from the source branch's worktree
 - With `--sync`, changes are stashed from the source branch's worktree
+- With `--carry` (no value), changes are stashed from the source branch's
+  worktree
+- With `--carry=@`, changes are stashed from the current worktree
+- With `--carry=<branch>`, changes are stashed from the specified branch's
+  worktree
 
 Constraints:
 
-- Cannot be used together with `-C`
 - The specified branch must have an existing worktree
+
+When used with `-C`:
+
+- `-C` sets the working directory and loads config from that location
+- `--source` searches for the branch within that directory's worktree group
+- This allows running `gwt add` from outside any worktree
+
+```bash
+# From any directory, create worktree using repo's settings
+gwt add feat/new -C /path/to/repo --source main
+```
+
+### Lock Option
+
+With `--lock`, the worktree is locked after creation to prevent automatic
+pruning by `git worktree prune`. This is useful for worktrees on portable
+devices or network shares that are not always mounted.
+
+```bash
+# Create a locked worktree
+gwt add feat/usb-work --lock
+
+# Create a locked worktree with a reason
+gwt add feat/usb-work --lock --reason "USB drive work"
+```
+
+The `--reason` option requires `--lock` and adds an explanation for why
+the worktree is locked. This reason is displayed by `git worktree list`.
+
+Locked worktrees require `--force` (or `-f -f`) to be moved or removed
+with git commands.
 
 ### Default Source Configuration
 
@@ -87,7 +166,16 @@ Priority:
 2. Config `default_source`
 3. Current worktree (lowest)
 
-When `-C` is specified, `default_source` is ignored.
+When `-C` is specified, `default_source` from that directory's config is
+applied. This provides consistent behavior: the config loaded by `-C` is
+fully respected.
+
+```bash
+# If /path/to/repo has default_source = "main" in its config:
+gwt add feat/new -C /path/to/repo
+# This is equivalent to:
+gwt add feat/new -C /path/to/repo --source main
+```
 
 The setting can be overridden in `.gwt/settings.local.toml` for personal
 preferences:
