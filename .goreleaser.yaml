@@ -24,6 +24,12 @@ builds:
       - windows
       - darwin
 
+homebrew_casks:
+  - repository:
+      owner: 708u
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
 archives:
   - formats: [tar.gz]
     # this name template makes the OS and Arch compatible with the results of `uname`.
