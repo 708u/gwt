@@ -37,8 +37,3 @@ Skipped .gwt/settings.toml (already exists)
 gwt init --force
 Created .gwt/settings.toml (overwritten)
 ```
-
-## Exit Code
-
-- 0: Configuration created or skipped successfully
-- 1: Failed to create configuration
