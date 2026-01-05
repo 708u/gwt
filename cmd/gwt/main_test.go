@@ -1013,9 +1013,7 @@ func TestRemoveCmd(t *testing.T) {
 
 			mock := &mockRemoveCommander{}
 
-			cmd := newRootCmd(WithNewRemoveCommander(func(cfg *gwt.Config) RemoveCommander {
-				return mock
-			}))
+			cmd := newRootCmd(WithRemoveCommander(mock))
 
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
@@ -1077,9 +1075,7 @@ func TestRemoveCmd_OutputFormat(t *testing.T) {
 
 			mock := &mockRemoveCommander{results: tt.results}
 
-			cmd := newRootCmd(WithNewRemoveCommander(func(cfg *gwt.Config) RemoveCommander {
-				return mock
-			}))
+			cmd := newRootCmd(WithRemoveCommander(mock))
 
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
@@ -1105,9 +1101,7 @@ func TestRemoveCmd_MultipleBranches(t *testing.T) {
 
 	mock := &mockRemoveCommander{}
 
-	cmd := newRootCmd(WithNewRemoveCommander(func(cfg *gwt.Config) RemoveCommander {
-		return mock
-	}))
+	cmd := newRootCmd(WithRemoveCommander(mock))
 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
