@@ -4,6 +4,7 @@ out/
 # Claude Code local settings
 .mcp.json
 .claude/settings.local.json
+.claude/user_instructions/*.md
 
 # twig local config
 .twig/settings.local.toml
