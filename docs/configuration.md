@@ -37,16 +37,6 @@ worktree_destination_base_dir = "/path/to/worktrees"
 
 Default: `<repo-name>-worktree` sibling directory.
 
-### worktree_source_dir
-
-Source directory for symlinks and worktree operations.
-
-```toml
-worktree_source_dir = "/path/to/main/worktree"
-```
-
-Default: Directory where config is loaded from.
-
 ### default_source
 
 Default branch to use as source when creating new worktrees.
@@ -66,7 +56,6 @@ When both files exist, settings are merged:
 | `symlinks`                      | Local overrides project  |
 | `extra_symlinks`                | Collected from both      |
 | `worktree_destination_base_dir` | Local overrides project  |
-| `worktree_source_dir`           | Local overrides project  |
 | `default_source`                | Local overrides project  |
 
 ## symlinks vs extra_symlinks
@@ -101,7 +90,6 @@ Result: Only `.my-envrc` is symlinked (project symlinks ignored).
 
 ```toml
 # .gwt/settings.toml
-worktree_source_dir = "/Users/dev/projects/myapp"
 worktree_destination_base_dir = "/Users/dev/projects/myapp-worktree"
 symlinks = [".envrc", ".tool-versions", "config/**"]
 default_source = "main"
@@ -112,3 +100,14 @@ default_source = "main"
 extra_symlinks = [".claude", ".local-config"]
 default_source = "develop"
 ```
+
+## Recommended: Setting default_source
+
+Setting `default_source` ensures symlinks are always created from the same
+worktree (e.g., main branch), preventing symlink chaining when creating
+worktrees from derived branches.
+
+Without `default_source`, symlinks are created from the current worktree.
+If you create worktree B from A, then C from B, the symlinks chain:
+`C -> B -> A`. With `default_source = "main"`, symlinks always point directly
+to main: `C -> main`, `B -> main`.
