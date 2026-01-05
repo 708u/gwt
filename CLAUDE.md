@@ -83,3 +83,10 @@ go test -tags=integration ./...   # Run integration tests
 
 - Use Conventional Commits format
 - Example: `feat: add new feature`, `fix: resolve bug`, `docs: update README`
+
+## User Instructions
+
+@.claude/user_instructions
+
+Place personal markdown files in this directory for local instructions.
+These files are gitignored and will not be committed to the repository.

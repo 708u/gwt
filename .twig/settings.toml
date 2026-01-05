@@ -6,7 +6,7 @@ default_source = "main"
 
 # Symlink patterns to create in new worktrees
 # Recommend: [".twig/settings.local.toml"] to share local settings across worktrees
-symlinks = []
+symlinks = [".claude/user_instructions"]
 
 # Worktree destination base directory (default: ../<repo-name>-worktree)
 # worktree_destination_base_dir = "../my-worktrees"
