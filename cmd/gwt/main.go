@@ -39,18 +39,11 @@ type RemoveCommander interface {
 	Run(branch string, cwd string, opts gwt.RemoveOptions) (gwt.RemovedWorktree, error)
 }
 
-// NewRemoveCommander is the factory function type for creating RemoveCommander instances.
-type NewRemoveCommander func(cfg *gwt.Config) RemoveCommander
-
-func defaultNewRemoveCommander(cfg *gwt.Config) RemoveCommander {
-	return gwt.NewDefaultRemoveCommand(cfg)
-}
-
 type options struct {
-	addCommander       AddCommander // nil = use default
-	newCleanCommander  NewCleanCommander
-	listCommander      ListCommander // nil = use default
-	newRemoveCommander NewRemoveCommander
+	addCommander      AddCommander // nil = use default
+	newCleanCommander NewCleanCommander
+	listCommander     ListCommander    // nil = use default
+	removeCommander   RemoveCommander  // nil = use default
 }
 
 // Option configures newRootCmd.
@@ -77,10 +70,10 @@ func WithListCommander(cmd ListCommander) Option {
 	}
 }
 
-// WithNewRemoveCommander sets the factory function for creating RemoveCommander instances.
-func WithNewRemoveCommander(nrc NewRemoveCommander) Option {
+// WithRemoveCommander sets the RemoveCommander instance for testing.
+func WithRemoveCommander(cmd RemoveCommander) Option {
 	return func(o *options) {
-		o.newRemoveCommander = nrc
+		o.removeCommander = cmd
 	}
 }
 
@@ -130,8 +123,7 @@ func resolveDirectory(dirFlag, baseCwd string) (string, error) {
 
 func newRootCmd(opts ...Option) *cobra.Command {
 	o := &options{
-		newCleanCommander:  defaultNewCleanCommander,
-		newRemoveCommander: defaultNewRemoveCommander,
+		newCleanCommander: defaultNewCleanCommander,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -438,7 +430,12 @@ stop processing of remaining branches.`,
 			forceCount, _ := cmd.Flags().GetCount("force")
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-			removeCmd := o.newRemoveCommander(cfg)
+			var removeCmd RemoveCommander
+			if o.removeCommander != nil {
+				removeCmd = o.removeCommander
+			} else {
+				removeCmd = gwt.NewDefaultRemoveCommand(cfg)
+			}
 			var result gwt.RemoveResult
 
 			for _, branch := range args {
