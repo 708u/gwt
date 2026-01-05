@@ -88,7 +88,7 @@ func TestInitCommand_Run(t *testing.T) {
 			t.Parallel()
 
 			mockFS := tt.setupFS()
-			cmd := &InitCommand{FS: mockFS}
+			cmd := NewInitCommand(mockFS)
 
 			result, err := cmd.Run("/test", tt.opts)
 

@@ -17,7 +17,7 @@ func TestInitCommand_Integration(t *testing.T) {
 
 		tmpDir := t.TempDir()
 
-		cmd := NewInitCommand()
+		cmd := NewDefaultInitCommand()
 		result, err := cmd.Run(tmpDir, InitOptions{})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
@@ -45,7 +45,7 @@ func TestInitCommand_Integration(t *testing.T) {
 
 		tmpDir := t.TempDir()
 
-		cmd := NewInitCommand()
+		cmd := NewDefaultInitCommand()
 		_, err := cmd.Run(tmpDir, InitOptions{})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
@@ -59,14 +59,14 @@ func TestInitCommand_Integration(t *testing.T) {
 
 		// Verify content has expected elements
 		contentStr := string(content)
+		if !strings.Contains(contentStr, `default_source = "main"`) {
+			t.Error("settings should contain default_source = main")
+		}
 		if !strings.Contains(contentStr, "symlinks = []") {
-			t.Error("settings should contain 'symlinks = []'")
+			t.Error("settings should contain symlinks = []")
 		}
 		if !strings.Contains(contentStr, "# worktree_destination_base_dir") {
 			t.Error("settings should contain commented worktree_destination_base_dir")
-		}
-		if !strings.Contains(contentStr, "# default_source") {
-			t.Error("settings should contain commented default_source")
 		}
 	})
 
@@ -86,7 +86,7 @@ func TestInitCommand_Integration(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cmd := NewInitCommand()
+		cmd := NewDefaultInitCommand()
 		result, err := cmd.Run(tmpDir, InitOptions{})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
@@ -122,7 +122,7 @@ func TestInitCommand_Integration(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cmd := NewInitCommand()
+		cmd := NewDefaultInitCommand()
 		result, err := cmd.Run(tmpDir, InitOptions{Force: true})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
@@ -150,7 +150,7 @@ func TestInitCommand_Integration(t *testing.T) {
 
 		tmpDir := t.TempDir()
 
-		cmd := NewInitCommand()
+		cmd := NewDefaultInitCommand()
 		result, err := cmd.Run(tmpDir, InitOptions{})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)
@@ -180,7 +180,7 @@ func TestInitCommand_Integration(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cmd := NewInitCommand()
+		cmd := NewDefaultInitCommand()
 		result, err := cmd.Run(tmpDir, InitOptions{})
 		if err != nil {
 			t.Fatalf("Run failed: %v", err)

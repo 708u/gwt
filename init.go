@@ -8,18 +8,18 @@ import (
 const settingsTemplate = `# gwt project configuration
 # See: https://github.com/708u/gwt-worktree
 
+# Default source branch for new worktrees (prevents symlink chaining)
+default_source = "main"
+
 # Symlink patterns to create in new worktrees
-# Example: symlinks = [".envrc", ".tool-versions", "node_modules"]
+# Recommend: [".gwt/settings.local.toml"] to share local settings across worktrees
 symlinks = []
 
 # Worktree destination base directory (default: ../<repo-name>-worktree)
 # worktree_destination_base_dir = "../my-worktrees"
 
-# Worktree source directory (default: current directory)
-# worktree_source_dir = "."
-
-# Default source branch for new worktrees
-# default_source = "main"
+# Additional symlink patterns (collected from both project and local configs)
+# extra_symlinks = [".envrc", ".tool-versions"]
 `
 
 // InitCommand initializes gwt configuration in a directory.
@@ -46,11 +46,16 @@ type InitFormatOptions struct {
 	Verbose bool
 }
 
-// NewInitCommand creates a new InitCommand with default dependencies.
-func NewInitCommand() *InitCommand {
+// NewInitCommand creates an InitCommand with explicit dependencies (for testing).
+func NewInitCommand(fs FileSystem) *InitCommand {
 	return &InitCommand{
-		FS: osFS{},
+		FS: fs,
 	}
+}
+
+// NewDefaultInitCommand creates an InitCommand with production defaults.
+func NewDefaultInitCommand() *InitCommand {
+	return NewInitCommand(osFS{})
 }
 
 // Run executes the init command.

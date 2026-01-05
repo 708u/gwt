@@ -422,6 +422,20 @@ func (m *mockRemoveCommander) Run(branch, cwd string, opts gwt.RemoveOptions) (g
 	return gwt.RemovedWorktree{Branch: branch, WorktreePath: "/test/" + branch}, nil
 }
 
+// mockInitCommander implements InitCommander for testing.
+type mockInitCommander struct {
+	result     gwt.InitResult
+	err        error
+	calledDir  string
+	calledOpts gwt.InitOptions
+}
+
+func (m *mockInitCommander) Run(dir string, opts gwt.InitOptions) (gwt.InitResult, error) {
+	m.calledDir = dir
+	m.calledOpts = opts
+	return m.result, m.err
+}
+
 func TestAddCmd(t *testing.T) {
 	t.Parallel()
 
@@ -1100,4 +1114,172 @@ func TestRemoveCmd_MultipleBranches(t *testing.T) {
 			t.Errorf("output should contain %q", b)
 		}
 	}
+}
+
+func TestInitCmd(t *testing.T) {
+	t.Parallel()
+
+	t.Run("BasicExecution", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+
+		mock := &mockInitCommander{
+			result: gwt.InitResult{
+				Created: true,
+			},
+		}
+
+		cmd := newRootCmd(WithInitCommander(mock))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", tmpDir, "init"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !mock.calledOpts.Force {
+			// Expected: Force should be false by default
+		} else {
+			t.Error("expected Force to be false")
+		}
+	})
+
+	t.Run("ForceFlag", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+
+		mock := &mockInitCommander{
+			result: gwt.InitResult{
+				Created:     true,
+				Overwritten: true,
+			},
+		}
+
+		cmd := newRootCmd(WithInitCommander(mock))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", tmpDir, "init", "--force"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !mock.calledOpts.Force {
+			t.Error("expected Force to be true")
+		}
+	})
+
+	t.Run("ForceShortFlag", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+
+		mock := &mockInitCommander{
+			result: gwt.InitResult{
+				Created:     true,
+				Overwritten: true,
+			},
+		}
+
+		cmd := newRootCmd(WithInitCommander(mock))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", tmpDir, "init", "-f"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !mock.calledOpts.Force {
+			t.Error("expected Force to be true")
+		}
+	})
+
+	t.Run("ErrorFromCommand", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+
+		mock := &mockInitCommander{
+			err: errors.New("permission denied"),
+		}
+
+		cmd := newRootCmd(WithInitCommander(mock))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", tmpDir, "init"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "permission denied") {
+			t.Errorf("error = %q, want to contain %q", err.Error(), "permission denied")
+		}
+	})
+
+	t.Run("SkippedOutput", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+
+		mock := &mockInitCommander{
+			result: gwt.InitResult{
+				Skipped: true,
+			},
+		}
+
+		cmd := newRootCmd(WithInitCommander(mock))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", tmpDir, "init"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !strings.Contains(stdout.String(), "Skipped") {
+			t.Errorf("stdout = %q, want to contain 'Skipped'", stdout.String())
+		}
+	})
+
+	t.Run("CreatedOutput", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+
+		mock := &mockInitCommander{
+			result: gwt.InitResult{
+				Created: true,
+			},
+		}
+
+		cmd := newRootCmd(WithInitCommander(mock))
+
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{"-C", tmpDir, "init"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !strings.Contains(stdout.String(), "Created") {
+			t.Errorf("stdout = %q, want to contain 'Created'", stdout.String())
+		}
+	})
 }

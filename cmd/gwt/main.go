@@ -32,11 +32,17 @@ type RemoveCommander interface {
 	Run(branch string, cwd string, opts gwt.RemoveOptions) (gwt.RemovedWorktree, error)
 }
 
+// InitCommander defines the interface for init operations.
+type InitCommander interface {
+	Run(dir string, opts gwt.InitOptions) (gwt.InitResult, error)
+}
+
 type options struct {
 	addCommander    AddCommander    // nil = use default
 	cleanCommander  CleanCommander  // nil = use default
 	listCommander   ListCommander   // nil = use default
 	removeCommander RemoveCommander // nil = use default
+	initCommander   InitCommander   // nil = use default
 }
 
 // Option configures newRootCmd.
@@ -67,6 +73,13 @@ func WithListCommander(cmd ListCommander) Option {
 func WithRemoveCommander(cmd RemoveCommander) Option {
 	return func(o *options) {
 		o.removeCommander = cmd
+	}
+}
+
+// WithInitCommander sets the InitCommander instance for testing.
+func WithInitCommander(cmd InitCommander) Option {
+	return func(o *options) {
+		o.initCommander = cmd
 	}
 }
 
@@ -567,7 +580,12 @@ stop processing of remaining branches.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			force, _ := cmd.Flags().GetBool("force")
 
-			initCommand := gwt.NewInitCommand()
+			var initCommand InitCommander
+			if o.initCommander != nil {
+				initCommand = o.initCommander
+			} else {
+				initCommand = gwt.NewDefaultInitCommand()
+			}
 			result, err := initCommand.Run(cwd, gwt.InitOptions{Force: force})
 			if err != nil {
 				return err
