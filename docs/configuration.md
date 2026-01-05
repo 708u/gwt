@@ -11,22 +11,6 @@ gwt reads configuration from TOML files in the `.gwt/` directory.
 
 ## Fields
 
-### symlinks
-
-Glob patterns for files to symlink from source worktree to new worktrees.
-
-```toml
-symlinks = [".envrc", "config/**/*.toml"]
-```
-
-### extra_symlinks
-
-Additional symlink patterns. Collected from both project and local configs.
-
-```toml
-extra_symlinks = [".tool-versions", ".claude"]
-```
-
 ### worktree_destination_base_dir
 
 Base directory where new worktrees are created.
@@ -45,7 +29,32 @@ Default branch to use as source when creating new worktrees.
 default_source = "main"
 ```
 
+Setting `default_source` ensures symlinks are always created from the same
+worktree (e.g., main branch), preventing symlink chaining when creating
+worktrees from derived branches.
+
+Without `default_source`, symlinks are created from the current worktree.
+For example, if you create `feat/api` from `main`, then `feat/api-v2` from
+`feat/api`, the symlinks chain: `feat/api-v2 -> feat/api -> main`.
+With `default_source = "main"`, symlinks always point directly to main.
+
 See [add subcommand](commands/add.md#default-source-configuration) for details.
+
+### symlinks
+
+Glob patterns for files to symlink from source worktree to new worktrees.
+
+```toml
+symlinks = [".envrc", "config/**/*.toml"]
+```
+
+### extra_symlinks
+
+Additional symlink patterns. Collected from both project and local configs.
+
+```toml
+extra_symlinks = [".tool-versions", ".claude"]
+```
 
 ## Merge Rules
 
@@ -53,10 +62,10 @@ When both files exist, settings are merged:
 
 | Field                           | Behavior                 |
 |---------------------------------|--------------------------|
-| `symlinks`                      | Local overrides project  |
-| `extra_symlinks`                | Collected from both      |
 | `worktree_destination_base_dir` | Local overrides project  |
 | `default_source`                | Local overrides project  |
+| `symlinks`                      | Local overrides project  |
+| `extra_symlinks`                | Collected from both      |
 
 ## symlinks vs extra_symlinks
 
@@ -91,23 +100,12 @@ Result: Only `.my-envrc` is symlinked (project symlinks ignored).
 ```toml
 # .gwt/settings.toml
 worktree_destination_base_dir = "/Users/dev/projects/myapp-worktree"
-symlinks = [".envrc", ".tool-versions", "config/**"]
 default_source = "main"
+symlinks = [".envrc", ".tool-versions", "config/**"]
 ```
 
 ```toml
 # .gwt/settings.local.toml
-extra_symlinks = [".claude", ".local-config"]
 default_source = "develop"
+extra_symlinks = [".claude", ".local-config"]
 ```
-
-## Recommended: Setting default_source
-
-Setting `default_source` ensures symlinks are always created from the same
-worktree (e.g., main branch), preventing symlink chaining when creating
-worktrees from derived branches.
-
-Without `default_source`, symlinks are created from the current worktree.
-For example, if you create `feat/api` from `main`, then `feat/api-v2` from
-`feat/api`, the symlinks chain: `feat/api-v2 -> feat/api -> main`.
-With `default_source = "main"`, symlinks always point directly to main.
