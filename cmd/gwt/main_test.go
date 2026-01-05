@@ -104,81 +104,72 @@ func TestResolveDirectory(t *testing.T) {
 func TestResolveCarryFrom(t *testing.T) {
 	t.Parallel()
 
-	t.Run("EmptyValue", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name        string
+		carryValue  string
+		originalCwd string
+		worktrees   []testutil.MockWorktree
+		want        string
+		wantErr     string
+	}{
+		{
+			name:        "EmptyValue",
+			carryValue:  "",
+			originalCwd: "/original",
+			wantErr:     "carry value cannot be empty",
+		},
+		{
+			name:        "CurrentValue",
+			carryValue:  carryFromCurrent,
+			originalCwd: "/path/to/original",
+			want:        "/path/to/original",
+		},
+		{
+			name:        "BranchValue",
+			carryValue:  "main",
+			originalCwd: "/original",
+			worktrees:   []testutil.MockWorktree{{Path: "/path/to/main", Branch: "main"}},
+			want:        "/path/to/main",
+		},
+		{
+			name:        "BranchNotFound",
+			carryValue:  "nonexistent",
+			originalCwd: "/original",
+			worktrees:   []testutil.MockWorktree{{Path: "/path/to/main", Branch: "main"}},
+			wantErr:     "failed to find worktree for branch",
+		},
+	}
 
-		cwd := "/path/to/cwd"
-		originalCwd := "/path/to/original"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		got, err := resolveCarryFrom("", cwd, originalCwd, nil)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got != cwd {
-			t.Errorf("got %q, want %q", got, cwd)
-		}
-	})
+			var git *gwt.GitRunner
+			if tt.worktrees != nil {
+				git = &gwt.GitRunner{
+					Executor: &testutil.MockGitExecutor{Worktrees: tt.worktrees},
+					Dir:      "/mock",
+				}
+			}
 
-	t.Run("SourceValue", func(t *testing.T) {
-		t.Parallel()
-
-		cwd := "/path/to/cwd"
-		originalCwd := "/path/to/original"
-
-		got, err := resolveCarryFrom("<source>", cwd, originalCwd, nil)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got != cwd {
-			t.Errorf("got %q, want %q", got, cwd)
-		}
-	})
-
-	t.Run("AtValue", func(t *testing.T) {
-		t.Parallel()
-
-		cwd := "/path/to/cwd"
-		originalCwd := "/path/to/original"
-
-		got, err := resolveCarryFrom("@", cwd, originalCwd, nil)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got != originalCwd {
-			t.Errorf("got %q, want %q", got, originalCwd)
-		}
-	})
-
-	t.Run("BranchValue", func(t *testing.T) {
-		t.Parallel()
-
-		_, mainDir := testutil.SetupTestRepo(t)
-		git := gwt.NewGitRunner(mainDir)
-
-		// main branch already has a worktree at mainDir
-		got, err := resolveCarryFrom("main", mainDir, "/original", git)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got != mainDir {
-			t.Errorf("got %q, want %q", got, mainDir)
-		}
-	})
-
-	t.Run("BranchNotFound", func(t *testing.T) {
-		t.Parallel()
-
-		_, mainDir := testutil.SetupTestRepo(t)
-		git := gwt.NewGitRunner(mainDir)
-
-		_, err := resolveCarryFrom("nonexistent", mainDir, "/original", git)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if !strings.Contains(err.Error(), "failed to find worktree for branch") {
-			t.Errorf("error = %q, want to contain 'failed to find worktree for branch'", err.Error())
-		}
-	})
+			got, err := resolveCarryFrom(tt.carryValue, tt.originalCwd, git)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("error = %q, want to contain %q", err.Error(), tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
 
 // mockCleanCommander is a test double for CleanCommander interface.
