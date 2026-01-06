@@ -63,6 +63,10 @@ type MockGitExecutor struct {
 	// MergedBranches maps target branch to list of branches merged into it.
 	MergedBranches map[string][]string
 
+	// UpstreamGoneBranches is a list of branches whose upstream is gone.
+	// Used by git for-each-ref to detect squash/rebase merged branches.
+	UpstreamGoneBranches []string
+
 	// WorktreePruneErr is returned when worktree prune is called.
 	WorktreePruneErr error
 }
@@ -106,6 +110,8 @@ func (m *MockGitExecutor) defaultRun(args ...string) ([]byte, error) {
 		return m.handleStatus(args)
 	case "stash":
 		return m.handleStash(args)
+	case "for-each-ref":
+		return m.handleForEachRef(args)
 	}
 	return nil, nil
 }
@@ -258,4 +264,22 @@ func (m *MockGitExecutor) handleStash(args []string) ([]byte, error) {
 		return []byte("stash@{0} " + hash + "\n"), nil
 	}
 	return nil, nil
+}
+
+func (m *MockGitExecutor) handleForEachRef(args []string) ([]byte, error) {
+	// args: ["for-each-ref", "--format=%(upstream:track)", "refs/heads/<branch>"]
+	if len(args) < 3 {
+		return nil, nil
+	}
+
+	ref := args[2]
+	branch, ok := strings.CutPrefix(ref, "refs/heads/")
+	if !ok {
+		return nil, nil
+	}
+
+	if slices.Contains(m.UpstreamGoneBranches, branch) {
+		return []byte("[gone]\n"), nil
+	}
+	return []byte("\n"), nil
 }

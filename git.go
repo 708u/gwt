@@ -35,6 +35,7 @@ const (
 	GitCmdStash    = "stash"
 	GitCmdStatus   = "status"
 	GitCmdRevParse = "rev-parse"
+	GitCmdDiff     = "diff"
 )
 
 // Git worktree subcommands.
@@ -538,6 +539,8 @@ func (g *GitRunner) branchDelete(branch string, force bool) ([]byte, error) {
 }
 
 // IsBranchMerged checks if branch is merged into target.
+// First checks using git branch --merged (detects traditional merges).
+// If not found, falls back to checking if upstream is gone (squash/rebase merges).
 func (g *GitRunner) IsBranchMerged(branch, target string) (bool, error) {
 	out, err := g.Run(GitCmdBranch, "--merged", target, "--format=%(refname:short)")
 	if err != nil {
@@ -548,7 +551,21 @@ func (g *GitRunner) IsBranchMerged(branch, target string) (bool, error) {
 			return true, nil
 		}
 	}
-	return false, nil
+
+	// Fallback: check if upstream branch is gone (deleted after merge)
+	return g.IsBranchUpstreamGone(branch)
+}
+
+// IsBranchUpstreamGone checks if the branch's upstream tracking branch is gone.
+// This indicates the remote branch was deleted, typically after a PR merge.
+func (g *GitRunner) IsBranchUpstreamGone(branch string) (bool, error) {
+	// git for-each-ref --format='%(upstream:track)' refs/heads/<branch>
+	// Returns "[gone]" if upstream was deleted
+	out, err := g.Run("for-each-ref", "--format=%(upstream:track)", "refs/heads/"+branch)
+	if err != nil {
+		return false, fmt.Errorf("failed to check upstream status: %w", err)
+	}
+	return strings.TrimSpace(string(out)) == "[gone]", nil
 }
 
 // WorktreePrune removes references to worktrees that no longer exist.
