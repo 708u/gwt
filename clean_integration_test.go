@@ -661,4 +661,171 @@ func TestCleanCommand_Integration(t *testing.T) {
 			t.Errorf("skip reason should be %s, got %s", SkipCurrentDir, result.Candidates[0].SkipReason)
 		}
 	})
+
+	t.Run("DetectsSquashMergedBranches", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		// Create a bare remote repository
+		remoteDir := filepath.Join(repoDir, "remote.git")
+		testutil.RunGit(t, repoDir, "init", "--bare", remoteDir)
+
+		// Add remote to main
+		testutil.RunGit(t, mainDir, "remote", "add", "origin", remoteDir)
+		testutil.RunGit(t, mainDir, "push", "-u", "origin", "main")
+
+		// Create a feature branch worktree
+		wtPath := filepath.Join(repoDir, "feature", "squashed")
+		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/squashed", wtPath)
+
+		// Make multiple commits on the feature branch
+		testFile1 := filepath.Join(wtPath, "feature1.txt")
+		if err := os.WriteFile(testFile1, []byte("feature content 1"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		testutil.RunGit(t, wtPath, "add", "feature1.txt")
+		testutil.RunGit(t, wtPath, "commit", "-m", "add feature 1")
+
+		testFile2 := filepath.Join(wtPath, "feature2.txt")
+		if err := os.WriteFile(testFile2, []byte("feature content 2"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		testutil.RunGit(t, wtPath, "add", "feature2.txt")
+		testutil.RunGit(t, wtPath, "commit", "-m", "add feature 2")
+
+		// Push to remote
+		testutil.RunGit(t, wtPath, "push", "-u", "origin", "feature/squashed")
+
+		// Simulate squash merge on main (combine all commits into one)
+		mainFile1 := filepath.Join(mainDir, "feature1.txt")
+		mainFile2 := filepath.Join(mainDir, "feature2.txt")
+		if err := os.WriteFile(mainFile1, []byte("feature content 1"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(mainFile2, []byte("feature content 2"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		testutil.RunGit(t, mainDir, "add", ".")
+		testutil.RunGit(t, mainDir, "commit", "-m", "feat: add features (#1)")
+
+		// Delete remote branch (as GitHub does after squash merge)
+		testutil.RunGit(t, mainDir, "push", "origin", "--delete", "feature/squashed")
+		testutil.RunGit(t, mainDir, "fetch", "--prune")
+
+		cfgResult, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := &CleanCommand{
+			FS:     osFS{},
+			Git:    NewGitRunner(mainDir),
+			Config: cfgResult.Config,
+		}
+
+		result, err := cmd.Run(mainDir, CleanOptions{Check: true})
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if len(result.Candidates) != 1 {
+			t.Fatalf("expected 1 candidate, got %d", len(result.Candidates))
+		}
+
+		if result.Candidates[0].Branch != "feature/squashed" {
+			t.Errorf("expected branch feature/squashed, got %s", result.Candidates[0].Branch)
+		}
+
+		// Should NOT be skipped - squash merge detected via upstream gone
+		if result.Candidates[0].Skipped {
+			t.Errorf("squash-merged branch should not be skipped, but was skipped with reason: %s",
+				result.Candidates[0].SkipReason)
+		}
+	})
+
+	t.Run("DetectsRebaseMergedBranches", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		// Create a bare remote repository
+		remoteDir := filepath.Join(repoDir, "remote.git")
+		testutil.RunGit(t, repoDir, "init", "--bare", remoteDir)
+
+		// Add remote to main
+		testutil.RunGit(t, mainDir, "remote", "add", "origin", remoteDir)
+		testutil.RunGit(t, mainDir, "push", "-u", "origin", "main")
+
+		// Create a feature branch worktree
+		wtPath := filepath.Join(repoDir, "feature", "rebased")
+		testutil.RunGit(t, mainDir, "worktree", "add", "-b", "feature/rebased", wtPath)
+
+		// Make commits on the feature branch
+		testFile1 := filepath.Join(wtPath, "rebased1.txt")
+		if err := os.WriteFile(testFile1, []byte("rebased content 1"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		testutil.RunGit(t, wtPath, "add", "rebased1.txt")
+		testutil.RunGit(t, wtPath, "commit", "-m", "add rebased file 1")
+
+		testFile2 := filepath.Join(wtPath, "rebased2.txt")
+		if err := os.WriteFile(testFile2, []byte("rebased content 2"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		testutil.RunGit(t, wtPath, "add", "rebased2.txt")
+		testutil.RunGit(t, wtPath, "commit", "-m", "add rebased file 2")
+
+		// Push to remote
+		testutil.RunGit(t, wtPath, "push", "-u", "origin", "feature/rebased")
+
+		// Simulate rebase merge on main (apply commits one by one)
+		mainFile1 := filepath.Join(mainDir, "rebased1.txt")
+		if err := os.WriteFile(mainFile1, []byte("rebased content 1"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		testutil.RunGit(t, mainDir, "add", "rebased1.txt")
+		testutil.RunGit(t, mainDir, "commit", "-m", "add rebased file 1")
+
+		mainFile2 := filepath.Join(mainDir, "rebased2.txt")
+		if err := os.WriteFile(mainFile2, []byte("rebased content 2"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		testutil.RunGit(t, mainDir, "add", "rebased2.txt")
+		testutil.RunGit(t, mainDir, "commit", "-m", "add rebased file 2")
+
+		// Delete remote branch (as GitHub does after rebase merge)
+		testutil.RunGit(t, mainDir, "push", "origin", "--delete", "feature/rebased")
+		testutil.RunGit(t, mainDir, "fetch", "--prune")
+
+		cfgResult, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := &CleanCommand{
+			FS:     osFS{},
+			Git:    NewGitRunner(mainDir),
+			Config: cfgResult.Config,
+		}
+
+		result, err := cmd.Run(mainDir, CleanOptions{Check: true})
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if len(result.Candidates) != 1 {
+			t.Fatalf("expected 1 candidate, got %d", len(result.Candidates))
+		}
+
+		if result.Candidates[0].Branch != "feature/rebased" {
+			t.Errorf("expected branch feature/rebased, got %s", result.Candidates[0].Branch)
+		}
+
+		// Should NOT be skipped - rebase merge detected via upstream gone
+		if result.Candidates[0].Skipped {
+			t.Errorf("rebase-merged branch should not be skipped, but was skipped with reason: %s",
+				result.Candidates[0].SkipReason)
+		}
+	})
 }

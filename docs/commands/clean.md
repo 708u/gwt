@@ -10,13 +10,13 @@ twig clean [flags]
 
 ## Flags
 
-| Flag              | Short | Description                                    |
-|-------------------|-------|------------------------------------------------|
-| `--yes`           | `-y`  | Execute removal without confirmation           |
-| `--check`         |       | Show candidates without prompting              |
-| `--target`        |       | Target branch for merge check                  |
-| `--force`         | `-f`  | Force clean (can be specified twice, see below)|
-| `--verbose`       | `-v`  | Show skip reasons for skipped worktrees        |
+| Flag              | Short | Description                                     |
+|-------------------|-------|-------------------------------------------------|
+| `--yes`           | `-y`  | Execute removal without confirmation            |
+| `--check`         |       | Show candidates without prompting               |
+| `--target`        |       | Target branch for merge check                   |
+| `--force`         | `-f`  | Force clean (can be specified twice, see below) |
+| `--verbose`       | `-v`  | Show skip reasons for skipped worktrees         |
 
 ## Behavior
 
@@ -48,13 +48,13 @@ Any other input aborts the operation without removing anything.
 
 All conditions must pass for a worktree to be cleaned:
 
-| Condition          | Description                       |
-|--------------------|-----------------------------------|
-| Merged             | Branch is merged to target        |
-| No changes         | No uncommitted changes            |
-| Not locked         | Worktree is not locked            |
-| Not current        | Not the current directory         |
-| Not main           | Not the main worktree             |
+| Condition          | Description                                      |
+|--------------------|--------------------------------------------------|
+| Merged             | Branch is merged to target or upstream is gone   |
+| No changes         | No uncommitted changes                           |
+| Not locked         | Worktree is not locked                           |
+| Not current        | Not the current directory                        |
+| Not main           | Not the main worktree                            |
 
 ### Force Option
 
