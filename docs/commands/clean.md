@@ -48,13 +48,13 @@ Any other input aborts the operation without removing anything.
 
 All conditions must pass for a worktree to be cleaned:
 
-| Condition          | Description                       |
-|--------------------|-----------------------------------|
-| Merged             | Branch is merged to target        |
-| No changes         | No uncommitted changes            |
-| Not locked         | Worktree is not locked            |
-| Not current        | Not the current directory         |
-| Not main           | Not the main worktree             |
+| Condition          | Description                                      |
+|--------------------|--------------------------------------------------|
+| Merged             | Branch is merged to target (includes squash/rebase) |
+| No changes         | No uncommitted changes                           |
+| Not locked         | Worktree is not locked                           |
+| Not current        | Not the current directory                        |
+| Not main           | Not the main worktree                            |
 
 ### Force Option
 
