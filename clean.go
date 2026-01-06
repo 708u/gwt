@@ -59,18 +59,10 @@ const (
 type CleanCandidate struct {
 	Branch       string
 	WorktreePath string
-	Prunable     bool // true if worktree directory was deleted (git prunable status)
+	Prunable     bool
 	Skipped      bool
 	SkipReason   SkipReason
-	CleanReason  CleanReason // reason why the branch is cleanable
-}
-
-// formatReason returns a human-readable reason string for display.
-func (c CleanCandidate) formatReason() string {
-	if c.Prunable {
-		return "prunable, " + string(c.CleanReason)
-	}
-	return string(c.CleanReason)
+	CleanReason  CleanReason
 }
 
 // CleanResult aggregates results from clean operations.
@@ -135,7 +127,11 @@ func (r CleanResult) Format(opts FormatOptions) FormatResult {
 	// Output cleanable candidates with group header and reasons
 	fmt.Fprintln(&stdout, "clean:")
 	for _, c := range cleanable {
-		fmt.Fprintf(&stdout, "  %s (%s)\n", c.Branch, c.formatReason())
+		reason := string(c.CleanReason)
+		if c.Prunable {
+			reason = "prunable, " + reason
+		}
+		fmt.Fprintf(&stdout, "  %s (%s)\n", c.Branch, reason)
 	}
 
 	// Output skipped candidates with group header (verbose only)
