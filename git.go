@@ -35,6 +35,7 @@ const (
 	GitCmdStash    = "stash"
 	GitCmdStatus   = "status"
 	GitCmdRevParse = "rev-parse"
+	GitCmdDiff     = "diff"
 )
 
 // Git worktree subcommands.
@@ -538,6 +539,8 @@ func (g *GitRunner) branchDelete(branch string, force bool) ([]byte, error) {
 }
 
 // IsBranchMerged checks if branch is merged into target.
+// First checks using git branch --merged (detects traditional merges).
+// If not found, falls back to content-based check for squash/rebase merges.
 func (g *GitRunner) IsBranchMerged(branch, target string) (bool, error) {
 	out, err := g.Run(GitCmdBranch, "--merged", target, "--format=%(refname:short)")
 	if err != nil {
@@ -548,7 +551,31 @@ func (g *GitRunner) IsBranchMerged(branch, target string) (bool, error) {
 			return true, nil
 		}
 	}
-	return false, nil
+
+	// Fallback: content-based check for squash/rebase merges
+	return g.IsBranchContentIdentical(branch, target)
+}
+
+// exitCoder is an interface for errors with exit codes.
+type exitCoder interface {
+	ExitCode() int
+}
+
+// IsBranchContentIdentical checks if branch and target have identical content.
+// Uses direct diff (target branch) which compares the tree content directly.
+func (g *GitRunner) IsBranchContentIdentical(branch, target string) (bool, error) {
+	// git diff target branch --quiet
+	// Exit code 0: no differences
+	// Exit code 1: differences exist
+	_, err := g.Run(GitCmdDiff, target, branch, "--quiet")
+	if err != nil {
+		var ec exitCoder
+		if errors.As(err, &ec) && ec.ExitCode() == 1 {
+			return false, nil // Differences exist
+		}
+		return false, fmt.Errorf("failed to diff branches: %w", err)
+	}
+	return true, nil
 }
 
 // WorktreePrune removes references to worktrees that no longer exist.

@@ -63,6 +63,10 @@ type MockGitExecutor struct {
 	// MergedBranches maps target branch to list of branches merged into it.
 	MergedBranches map[string][]string
 
+	// ContentMergedBranches maps target branch to branches whose content is merged
+	// (for squash/rebase merges). Used by git diff target...branch --quiet.
+	ContentMergedBranches map[string][]string
+
 	// WorktreePruneErr is returned when worktree prune is called.
 	WorktreePruneErr error
 }
@@ -106,6 +110,8 @@ func (m *MockGitExecutor) defaultRun(args ...string) ([]byte, error) {
 		return m.handleStatus(args)
 	case "stash":
 		return m.handleStash(args)
+	case "diff":
+		return m.handleDiff(args)
 	}
 	return nil, nil
 }
@@ -258,4 +264,37 @@ func (m *MockGitExecutor) handleStash(args []string) ([]byte, error) {
 		return []byte("stash@{0} " + hash + "\n"), nil
 	}
 	return nil, nil
+}
+
+// exitError simulates an exec.ExitError with a specific exit code.
+type exitError struct {
+	code int
+}
+
+func (e exitError) Error() string {
+	return "exit status 1"
+}
+
+func (e exitError) ExitCode() int {
+	return e.code
+}
+
+func (m *MockGitExecutor) handleDiff(args []string) ([]byte, error) {
+	// args: ["diff", "target", "branch", "--quiet"]
+	if len(args) < 3 {
+		return nil, nil
+	}
+
+	target, branch := args[1], args[2]
+
+	// Check if branch content is merged into target
+	branches := m.ContentMergedBranches[target]
+	for _, b := range branches {
+		if b == branch {
+			return nil, nil // No differences (exit code 0)
+		}
+	}
+
+	// Differences exist - return exit code 1
+	return nil, exitError{code: 1}
 }
