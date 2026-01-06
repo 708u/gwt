@@ -10,13 +10,13 @@ twig clean [flags]
 
 ## Flags
 
-| Flag              | Short | Description                                    |
-|-------------------|-------|------------------------------------------------|
-| `--yes`           | `-y`  | Execute removal without confirmation           |
-| `--check`         |       | Show candidates without prompting              |
-| `--target`        |       | Target branch for merge check                  |
-| `--force`         | `-f`  | Force clean (can be specified twice, see below)|
-| `--verbose`       | `-v`  | Show skip reasons for skipped worktrees        |
+| Flag              | Short | Description                                     |
+|-------------------|-------|-------------------------------------------------|
+| `--yes`           | `-y`  | Execute removal without confirmation            |
+| `--check`         |       | Show candidates without prompting               |
+| `--target`        |       | Target branch for merge check                   |
+| `--force`         | `-f`  | Force clean (can be specified twice, see below) |
+| `--verbose`       | `-v`  | Show skip reasons for skipped worktrees         |
 
 ## Behavior
 
