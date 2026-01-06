@@ -50,7 +50,7 @@ All conditions must pass for a worktree to be cleaned:
 
 | Condition          | Description                                      |
 |--------------------|--------------------------------------------------|
-| Merged             | Branch is merged to target (includes squash/rebase) |
+| Merged             | Branch is merged to target or upstream is gone   |
 | No changes         | No uncommitted changes                           |
 | Not locked         | Worktree is not locked                           |
 | Not current        | Not the current directory                        |

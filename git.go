@@ -540,7 +540,7 @@ func (g *GitRunner) branchDelete(branch string, force bool) ([]byte, error) {
 
 // IsBranchMerged checks if branch is merged into target.
 // First checks using git branch --merged (detects traditional merges).
-// If not found, falls back to content-based check for squash/rebase merges.
+// If not found, falls back to checking if upstream is gone (squash/rebase merges).
 func (g *GitRunner) IsBranchMerged(branch, target string) (bool, error) {
 	out, err := g.Run(GitCmdBranch, "--merged", target, "--format=%(refname:short)")
 	if err != nil {
@@ -552,30 +552,20 @@ func (g *GitRunner) IsBranchMerged(branch, target string) (bool, error) {
 		}
 	}
 
-	// Fallback: content-based check for squash/rebase merges
-	return g.IsBranchContentIdentical(branch, target)
+	// Fallback: check if upstream branch is gone (deleted after merge)
+	return g.IsBranchUpstreamGone(branch)
 }
 
-// exitCoder is an interface for errors with exit codes.
-type exitCoder interface {
-	ExitCode() int
-}
-
-// IsBranchContentIdentical checks if branch and target have identical content.
-// Uses direct diff (target branch) which compares the tree content directly.
-func (g *GitRunner) IsBranchContentIdentical(branch, target string) (bool, error) {
-	// git diff target branch --quiet
-	// Exit code 0: no differences
-	// Exit code 1: differences exist
-	_, err := g.Run(GitCmdDiff, target, branch, "--quiet")
+// IsBranchUpstreamGone checks if the branch's upstream tracking branch is gone.
+// This indicates the remote branch was deleted, typically after a PR merge.
+func (g *GitRunner) IsBranchUpstreamGone(branch string) (bool, error) {
+	// git for-each-ref --format='%(upstream:track)' refs/heads/<branch>
+	// Returns "[gone]" if upstream was deleted
+	out, err := g.Run("for-each-ref", "--format=%(upstream:track)", "refs/heads/"+branch)
 	if err != nil {
-		var ec exitCoder
-		if errors.As(err, &ec) && ec.ExitCode() == 1 {
-			return false, nil // Differences exist
-		}
-		return false, fmt.Errorf("failed to diff branches: %w", err)
+		return false, fmt.Errorf("failed to check upstream status: %w", err)
 	}
-	return true, nil
+	return strings.TrimSpace(string(out)) == "[gone]", nil
 }
 
 // WorktreePrune removes references to worktrees that no longer exist.

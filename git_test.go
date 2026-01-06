@@ -6,49 +6,38 @@ import (
 	"github.com/708u/twig/internal/testutil"
 )
 
-func TestGitRunner_IsBranchContentIdentical(t *testing.T) {
+func TestGitRunner_IsBranchUpstreamGone(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		branch        string
-		target        string
-		contentMerged map[string][]string
-		want          bool
+		name         string
+		branch       string
+		upstreamGone []string
+		want         bool
 	}{
 		{
-			name:   "content merged",
-			branch: "feat/squashed",
-			target: "main",
-			contentMerged: map[string][]string{
-				"main": {"feat/squashed"},
-			},
-			want: true,
+			name:         "upstream is gone",
+			branch:       "feat/squashed",
+			upstreamGone: []string{"feat/squashed"},
+			want:         true,
 		},
 		{
-			name:   "content not merged",
-			branch: "feat/new",
-			target: "main",
-			contentMerged: map[string][]string{
-				"main": {},
-			},
-			want: false,
+			name:         "upstream exists",
+			branch:       "feat/new",
+			upstreamGone: []string{},
+			want:         false,
 		},
 		{
-			name:          "empty content merged map",
-			branch:        "feat/any",
-			target:        "main",
-			contentMerged: map[string][]string{},
-			want:          false,
+			name:         "multiple gone branches",
+			branch:       "feat/b",
+			upstreamGone: []string{"feat/a", "feat/b", "feat/c"},
+			want:         true,
 		},
 		{
-			name:   "multiple branches content merged",
-			branch: "feat/b",
-			target: "main",
-			contentMerged: map[string][]string{
-				"main": {"feat/a", "feat/b", "feat/c"},
-			},
-			want: true,
+			name:         "different branch gone",
+			branch:       "feat/x",
+			upstreamGone: []string{"feat/y"},
+			want:         false,
 		},
 	}
 
@@ -57,11 +46,11 @@ func TestGitRunner_IsBranchContentIdentical(t *testing.T) {
 			t.Parallel()
 
 			mockGit := &testutil.MockGitExecutor{
-				ContentMergedBranches: tt.contentMerged,
+				UpstreamGoneBranches: tt.upstreamGone,
 			}
 			runner := &GitRunner{Executor: mockGit}
 
-			got, err := runner.IsBranchContentIdentical(tt.branch, tt.target)
+			got, err := runner.IsBranchUpstreamGone(tt.branch)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -78,12 +67,12 @@ func TestGitRunner_IsBranchMerged_WithSquashMerge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		branch        string
-		target        string
-		merged        map[string][]string
-		contentMerged map[string][]string
-		want          bool
+		name         string
+		branch       string
+		target       string
+		merged       map[string][]string
+		upstreamGone []string
+		want         bool
 	}{
 		{
 			name:   "traditional merge detected",
@@ -92,20 +81,18 @@ func TestGitRunner_IsBranchMerged_WithSquashMerge(t *testing.T) {
 			merged: map[string][]string{
 				"main": {"feat/merged"},
 			},
-			contentMerged: map[string][]string{},
-			want:          true,
+			upstreamGone: []string{},
+			want:         true,
 		},
 		{
-			name:   "squash merge detected via content check",
+			name:   "squash merge detected via upstream gone",
 			branch: "feat/squashed",
 			target: "main",
 			merged: map[string][]string{
 				"main": {}, // Not in --merged output
 			},
-			contentMerged: map[string][]string{
-				"main": {"feat/squashed"}, // But content is in target
-			},
-			want: true,
+			upstreamGone: []string{"feat/squashed"}, // But upstream is gone
+			want:         true,
 		},
 		{
 			name:   "not merged at all",
@@ -114,10 +101,8 @@ func TestGitRunner_IsBranchMerged_WithSquashMerge(t *testing.T) {
 			merged: map[string][]string{
 				"main": {},
 			},
-			contentMerged: map[string][]string{
-				"main": {},
-			},
-			want: false,
+			upstreamGone: []string{},
+			want:         false,
 		},
 		{
 			name:   "traditional merge takes precedence",
@@ -126,22 +111,8 @@ func TestGitRunner_IsBranchMerged_WithSquashMerge(t *testing.T) {
 			merged: map[string][]string{
 				"main": {"feat/both"},
 			},
-			contentMerged: map[string][]string{
-				"main": {"feat/both"},
-			},
-			want: true,
-		},
-		{
-			name:   "different target branch",
-			branch: "feat/dev-feature",
-			target: "develop",
-			merged: map[string][]string{
-				"develop": {},
-			},
-			contentMerged: map[string][]string{
-				"develop": {"feat/dev-feature"},
-			},
-			want: true,
+			upstreamGone: []string{"feat/both"},
+			want:         true,
 		},
 	}
 
@@ -150,8 +121,8 @@ func TestGitRunner_IsBranchMerged_WithSquashMerge(t *testing.T) {
 			t.Parallel()
 
 			mockGit := &testutil.MockGitExecutor{
-				MergedBranches:        tt.merged,
-				ContentMergedBranches: tt.contentMerged,
+				MergedBranches:       tt.merged,
+				UpstreamGoneBranches: tt.upstreamGone,
 			}
 			runner := &GitRunner{Executor: mockGit}
 
