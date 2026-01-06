@@ -7,9 +7,16 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/708u/twig"
 	"github.com/spf13/cobra"
+)
+
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
 )
 
 // AddCommander is the interface for AddCommand execution.
@@ -155,6 +162,7 @@ func newRootCmd(opts ...Option) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:           "twig",
 		Short:         "Manage git worktrees and branches together",
+		Version:       version,
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -598,6 +606,20 @@ stop processing of remaining branches.`,
 	}
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing configuration file")
 	rootCmd.AddCommand(initCmd)
+
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 1, ' ', 0)
+			fmt.Fprintf(w, "version:\t%s\n", version)
+			fmt.Fprintf(w, "commit:\t%s\n", commit)
+			fmt.Fprintf(w, "date:\t%s\n", date)
+			w.Flush()
+		},
+	}
+	rootCmd.AddCommand(versionCmd)
 
 	return rootCmd
 }
