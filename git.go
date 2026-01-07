@@ -30,12 +30,16 @@ const (
 
 // Git command names.
 const (
-	GitCmdWorktree = "worktree"
-	GitCmdBranch   = "branch"
-	GitCmdStash    = "stash"
-	GitCmdStatus   = "status"
-	GitCmdRevParse = "rev-parse"
-	GitCmdDiff     = "diff"
+	GitCmdWorktree  = "worktree"
+	GitCmdBranch    = "branch"
+	GitCmdStash     = "stash"
+	GitCmdStatus    = "status"
+	GitCmdRevParse  = "rev-parse"
+	GitCmdDiff      = "diff"
+	GitCmdRemote    = "remote"
+	GitCmdFetch     = "fetch"
+	GitCmdLsRemote  = "ls-remote"
+	GitCmdForEachRef = "for-each-ref"
 )
 
 // Git worktree subcommands.
@@ -219,6 +223,48 @@ func (g *GitRunner) BranchList() ([]string, error) {
 		}
 	}
 	return branches, nil
+}
+
+// FindRemoteForBranch finds the remote that has the specified branch.
+// Returns the remote name if exactly one remote has the branch.
+// Returns empty string if no remote has the branch.
+// Returns error if multiple remotes have the branch (ambiguous).
+func (g *GitRunner) FindRemoteForBranch(branch string) (string, error) {
+	remotes, err := g.Run(GitCmdRemote)
+	if err != nil {
+		return "", nil // No remotes configured
+	}
+
+	var foundRemotes []string
+	for _, remote := range strings.Split(strings.TrimSpace(string(remotes)), "\n") {
+		if remote == "" {
+			continue
+		}
+		out, err := g.Run(GitCmdLsRemote, "--heads", remote, RefsHeadsPrefix+branch)
+		if err != nil {
+			continue // Remote unreachable, skip
+		}
+		if len(strings.TrimSpace(string(out))) > 0 {
+			foundRemotes = append(foundRemotes, remote)
+		}
+	}
+
+	switch len(foundRemotes) {
+	case 0:
+		return "", nil
+	case 1:
+		return foundRemotes[0], nil
+	default:
+		return "", fmt.Errorf("branch %q exists on multiple remotes: %v", branch, foundRemotes)
+	}
+}
+
+// Fetch fetches the specified refspec from the remote.
+func (g *GitRunner) Fetch(remote string, refspec ...string) error {
+	args := []string{GitCmdFetch, remote}
+	args = append(args, refspec...)
+	_, err := g.Run(args...)
+	return err
 }
 
 // Worktree holds worktree path and branch information.
