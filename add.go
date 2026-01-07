@@ -239,7 +239,6 @@ func (c *AddCommand) createWorktree(branch, path string) ([]byte, error) {
 
 	var opts []WorktreeAddOption
 	if c.Git.LocalBranchExists(branch) {
-		// Local branch exists
 		branches, err := c.Git.WorktreeListBranches()
 		if err != nil {
 			return nil, fmt.Errorf("failed to list worktree branches: %w", err)
@@ -248,7 +247,6 @@ func (c *AddCommand) createWorktree(branch, path string) ([]byte, error) {
 			return nil, fmt.Errorf("branch %s is already checked out in another worktree", branch)
 		}
 	} else {
-		// Local branch doesn't exist, check remote
 		remote, err := c.Git.FindRemoteForBranch(branch)
 		if err != nil {
 			return nil, err
