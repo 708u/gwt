@@ -238,7 +238,7 @@ func (c *AddCommand) createWorktree(branch, path string) ([]byte, error) {
 	}
 
 	var opts []WorktreeAddOption
-	if c.Git.BranchExists(branch) {
+	if c.Git.LocalBranchExists(branch) {
 		// Local branch exists
 		branches, err := c.Git.WorktreeListBranches()
 		if err != nil {
