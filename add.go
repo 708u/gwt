@@ -14,7 +14,7 @@ type AddCommand struct {
 	Config     *Config
 	Sync       bool
 	CarryFrom  string
-	CarryFiles []string
+	FilePatterns []string
 	Lock       bool
 	LockReason string
 }
@@ -23,7 +23,7 @@ type AddCommand struct {
 type AddOptions struct {
 	Sync       bool
 	CarryFrom  string   // empty: no carry, non-empty: resolved path to carry from
-	CarryFiles []string // file patterns to carry (empty means all files)
+	FilePatterns []string // file patterns to carry (empty means all files)
 	Lock       bool
 	LockReason string
 }
@@ -36,7 +36,7 @@ func NewAddCommand(fs FileSystem, git *GitRunner, cfg *Config, opts AddOptions) 
 		Config:     cfg,
 		Sync:       opts.Sync,
 		CarryFrom:  opts.CarryFrom,
-		CarryFiles: opts.CarryFiles,
+		FilePatterns: opts.FilePatterns,
 		Lock:       opts.Lock,
 		LockReason: opts.LockReason,
 	}
@@ -167,13 +167,16 @@ func (c *AddCommand) Run(name string) (AddResult, error) {
 			return result, fmt.Errorf("failed to check for changes: %w", err)
 		}
 		if hasChanges {
-			// CarryFiles only applies to carry mode, not sync
 			var pathspecs []string
-			if isCarry && len(c.CarryFiles) > 0 {
+			if len(c.FilePatterns) > 0 {
 				// Expand glob patterns to actual file paths using doublestar
+				globDir := c.Config.WorktreeSourceDir
+				if isCarry {
+					globDir = c.CarryFrom
+				}
 				seen := make(map[string]bool)
-				for _, pattern := range c.CarryFiles {
-					matches, err := c.FS.Glob(c.CarryFrom, pattern)
+				for _, pattern := range c.FilePatterns {
+					matches, err := c.FS.Glob(globDir, pattern)
 					if err != nil {
 						return result, fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
 					}

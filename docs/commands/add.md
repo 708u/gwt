@@ -18,7 +18,7 @@ twig add <name> [flags]
 |-----------------------|-------|----------------------------------------------------|
 | `--sync`              | `-s`  | Sync uncommitted changes to new worktree           |
 | `--carry [<branch>]`  | `-c`  | Carry uncommitted changes (optionally from branch) |
-| `--file <pattern>`    | `-F`  | File patterns to carry (requires `--carry`)        |
+| `--file <pattern>`    | `-F`  | File patterns to sync/carry (requires `--sync` or `--carry`) |
 | `--quiet`             | `-q`  | Output only the worktree path                      |
 | `--verbose`           | `-v`  | Enable verbose output                              |
 | `--source <branch>`   |       | Use specified branch's worktree as source          |
@@ -38,25 +38,32 @@ twig add <name> [flags]
 
 ### Remote Branch Support
 
-When the specified branch doesn't exist locally, twig automatically checks
-configured remotes:
+When the specified branch doesn't exist locally, twig checks local
+remote-tracking branches (e.g., `refs/remotes/origin/<branch>`):
 
 ```bash
-# If origin/feat/api exists but local feat/api doesn't:
+# If origin/feat/api exists locally (already fetched):
 twig add feat/api
-# Fetches from origin and creates worktree with tracking branch
+# Creates worktree with tracking branch
 ```
 
 This behavior is similar to `git checkout <branch>` which auto-tracks
-remote branches.
+remote branches without network access.
+
+To get the latest remote branches, run `git fetch` first:
+
+```bash
+git fetch origin
+twig add feat/api
+```
 
 #### Multiple Remotes
 
-When multiple remotes are configured:
+When multiple remotes have the branch:
 
 | Scenario                              | Behavior                            |
 |---------------------------------------|-------------------------------------|
-| Branch exists on one remote only      | Fetches from that remote            |
+| Branch exists on one remote only      | Uses that remote                    |
 | Branch exists on multiple remotes     | Error (ambiguous)                   |
 | Branch exists on no remote            | Creates new local branch            |
 
@@ -64,16 +71,6 @@ When multiple remotes are configured:
 # Branch exists on both origin and upstream
 twig add feat/shared
 # Error: branch "feat/shared" exists on multiple remotes: [origin upstream]
-```
-
-#### Fetch Errors
-
-If fetching fails (network error, authentication, etc.), the error is
-displayed with context:
-
-```bash
-twig add feat/api
-# Error: failed to fetch feat/api from origin: <git error message>
 ```
 
 ### Sync Option
@@ -87,6 +84,29 @@ With `--sync`, uncommitted changes are copied to the new worktree:
 
 If worktree creation or stash apply fails, changes are restored
 to the source worktree automatically.
+
+#### Syncing Specific Files
+
+Use `--file` to sync only matching files:
+
+```bash
+# Sync only Go files in root
+twig add feat/new --sync --file "*.go"
+
+# Sync all Go files recursively (globstar)
+twig add feat/new --sync --file "**/*.go"
+
+# Sync multiple patterns
+twig add feat/new --sync --file "*.go" --file "cmd/**"
+```
+
+When `--file` is specified with `--sync`:
+
+- Only matching files are stashed and synced to the new worktree
+- Non-matching files remain only in the source worktree (not synced)
+- Both worktrees have the matching files after operation
+
+Without `--file`, all uncommitted changes are synced (default behavior).
 
 ### Carry Option
 
@@ -152,8 +172,7 @@ to the source worktree automatically.
 
 Constraints:
 
-- Cannot be used together with `--sync`
-- `--file` requires the `--carry` flag
+- `--carry` cannot be used together with `--sync`
 
 ### Quiet Option
 

@@ -922,6 +922,168 @@ worktree_destination_base_dir = %q
 		}
 	})
 
+	t.Run("SyncSpecificFiles", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		// Commit .twig/settings.toml first
+		testutil.RunGit(t, mainDir, "add", ".twig")
+		testutil.RunGit(t, mainDir, "commit", "-m", "add twig settings")
+
+		// Create multiple uncommitted files
+		goFile := filepath.Join(mainDir, "main.go")
+		if err := os.WriteFile(goFile, []byte("package main"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		txtFile := filepath.Join(mainDir, "readme.txt")
+		if err := os.WriteFile(txtFile, []byte("readme content"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Sync only *.go files
+		cmd := &AddCommand{
+			FS:         osFS{},
+			Git:        NewGitRunner(mainDir),
+			Config:     result.Config,
+			Sync:       true,
+			FilePatterns: []string{"*.go"},
+		}
+
+		addResult, err := cmd.Run("feature/sync-go-only")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		// Verify ChangesSynced is true
+		if !addResult.ChangesSynced {
+			t.Error("expected ChangesSynced to be true")
+		}
+
+		// Verify worktree was created
+		wtPath := filepath.Join(repoDir, "feature", "sync-go-only")
+		if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+			t.Errorf("worktree directory does not exist: %s", wtPath)
+		}
+
+		// Verify main.go exists in new worktree (synced)
+		syncedGoFile := filepath.Join(wtPath, "main.go")
+		content, err := os.ReadFile(syncedGoFile)
+		if err != nil {
+			t.Fatalf("failed to read synced go file: %v", err)
+		}
+		if string(content) != "package main" {
+			t.Errorf("synced go file content = %q, want %q", string(content), "package main")
+		}
+
+		// Verify readme.txt does NOT exist in new worktree (not synced)
+		notSyncedTxtFile := filepath.Join(wtPath, "readme.txt")
+		if _, err := os.Stat(notSyncedTxtFile); !os.IsNotExist(err) {
+			t.Errorf("readme.txt should not exist in new worktree: %s", notSyncedTxtFile)
+		}
+
+		// Verify main.go still exists in source (unlike carry, sync keeps source files)
+		sourceContent, err := os.ReadFile(goFile)
+		if err != nil {
+			t.Fatalf("failed to read source go file: %v", err)
+		}
+		if string(sourceContent) != "package main" {
+			t.Errorf("source go file content = %q, want %q", string(sourceContent), "package main")
+		}
+
+		// Verify readme.txt still exists in source
+		txtContent, err := os.ReadFile(txtFile)
+		if err != nil {
+			t.Fatalf("failed to read source txt file: %v", err)
+		}
+		if string(txtContent) != "readme content" {
+			t.Errorf("source txt file content = %q, want %q", string(txtContent), "readme content")
+		}
+	})
+
+	t.Run("SyncMultiplePatterns", func(t *testing.T) {
+		t.Parallel()
+
+		repoDir, mainDir := testutil.SetupTestRepo(t)
+
+		// Commit .twig/settings.toml first
+		testutil.RunGit(t, mainDir, "add", ".twig")
+		testutil.RunGit(t, mainDir, "commit", "-m", "add twig settings")
+
+		// Create directory structure with multiple file types
+		cmdDir := filepath.Join(mainDir, "cmd")
+		if err := os.MkdirAll(cmdDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create files: root *.go, cmd/app.go, readme.txt
+		rootGo := filepath.Join(mainDir, "main.go")
+		if err := os.WriteFile(rootGo, []byte("package main"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		cmdGo := filepath.Join(cmdDir, "app.go")
+		if err := os.WriteFile(cmdGo, []byte("package cmd"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		txtFile := filepath.Join(mainDir, "readme.txt")
+		if err := os.WriteFile(txtFile, []byte("readme"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LoadConfig(mainDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Sync *.go and cmd/**
+		cmd := &AddCommand{
+			FS:         osFS{},
+			Git:        NewGitRunner(mainDir),
+			Config:     result.Config,
+			Sync:       true,
+			FilePatterns: []string{"*.go", "cmd/**"},
+		}
+
+		addResult, err := cmd.Run("feature/sync-multi-pattern")
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		if !addResult.ChangesSynced {
+			t.Error("expected ChangesSynced to be true")
+		}
+
+		wtPath := filepath.Join(repoDir, "feature", "sync-multi-pattern")
+
+		// Verify main.go synced
+		if _, err := os.Stat(filepath.Join(wtPath, "main.go")); os.IsNotExist(err) {
+			t.Error("main.go should exist in new worktree")
+		}
+
+		// Verify cmd/app.go synced
+		if _, err := os.Stat(filepath.Join(wtPath, "cmd", "app.go")); os.IsNotExist(err) {
+			t.Error("cmd/app.go should exist in new worktree")
+		}
+
+		// Verify readme.txt NOT synced
+		if _, err := os.Stat(filepath.Join(wtPath, "readme.txt")); !os.IsNotExist(err) {
+			t.Error("readme.txt should NOT exist in new worktree")
+		}
+
+		// Verify source files still exist (sync behavior)
+		if _, err := os.Stat(rootGo); os.IsNotExist(err) {
+			t.Error("main.go should still exist in source")
+		}
+		if _, err := os.Stat(cmdGo); os.IsNotExist(err) {
+			t.Error("cmd/app.go should still exist in source")
+		}
+	})
+
 	t.Run("QuietOutputsOnlyPath", func(t *testing.T) {
 		t.Parallel()
 
@@ -1051,7 +1213,7 @@ worktree_destination_base_dir = %q
 			Git:        NewGitRunner(mainDir),
 			Config:     result.Config,
 			CarryFrom:  mainDir,
-			CarryFiles: []string{"*.go"},
+			FilePatterns: []string{"*.go"},
 		}
 
 		addResult, err := cmd.Run("feature/carry-go-only")
@@ -1148,7 +1310,7 @@ worktree_destination_base_dir = %q
 			Git:        NewGitRunner(mainDir),
 			Config:     result.Config,
 			CarryFrom:  mainDir,
-			CarryFiles: []string{"*.go", "cmd/**"},
+			FilePatterns: []string{"*.go", "cmd/**"},
 		}
 
 		_, err = cmd.Run("feature/carry-multiple")
@@ -1222,7 +1384,7 @@ worktree_destination_base_dir = %q
 			Git:        NewGitRunner(mainDir),
 			Config:     result.Config,
 			CarryFrom:  mainDir,
-			CarryFiles: []string{"**/*.go"},
+			FilePatterns: []string{"**/*.go"},
 		}
 
 		_, err = cmd.Run("feature/globstar")
@@ -1318,6 +1480,10 @@ worktree_destination_base_dir = %q
 		if strings.TrimSpace(out) != "" {
 			t.Fatal("feature/remote-only should not exist locally before test")
 		}
+
+		// Fetch from origin to get remote-tracking branches
+		// (like git checkout, twig checks local remote-tracking refs)
+		testutil.RunGit(t, mainDir, "fetch", "origin")
 
 		cmd := &AddCommand{
 			FS:     osFS{},
