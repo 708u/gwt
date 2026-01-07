@@ -55,9 +55,9 @@ Examples:
 - Move refactoring ideas to a separate worktree and continue main work
 - Extract WIP changes to a new branch before switching tasks
 
-### Bulk delete merged worktrees
+### Clean up worktrees no longer needed
 
-`twig clean` deletes merged worktrees and their branches together.
+`twig clean` removes worktrees that are merged, have upstream gone, or are prunable.
 
 ## Installation
 
@@ -118,7 +118,7 @@ twig add feat/wip --carry
 # List worktrees
 twig list
 
-# Bulk delete merged worktrees
+# Clean up worktrees no longer needed
 twig clean
 
 # Delete a specific worktree
@@ -147,7 +147,7 @@ Details: [docs/configuration.md](docs/configuration.md)
 | [add](docs/commands/add.md)          | Create worktree and branch                       |
 | [list](docs/commands/list.md)        | List worktrees                                   |
 | [remove](docs/commands/remove.md)    | Delete worktree and branch (multiple supported)  |
-| [clean](docs/commands/clean.md)      | Bulk delete merged worktrees                     |
+| [clean](docs/commands/clean.md)      | Clean up worktrees no longer needed              |
 
 See the documentation above for detailed flags and specifications.
 
