@@ -201,9 +201,9 @@ based on configuration.
 Use --sync to copy uncommitted changes (both worktrees keep them).
 Use --carry to move uncommitted changes (only new worktree has them).
 
-With --carry, use --file to carry only matching files:
+Use --file with --sync or --carry to target specific files:
 
-  twig add feat/new --carry --file "*.go"
+  twig add feat/new --sync --file "*.go"
   twig add feat/new --carry --file "*.go" --file "cmd/**"`,
 		Args: cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -517,7 +517,7 @@ stop processing of remaining branches.`,
 	addCmd.Flags().String("source", "", "Source branch's worktree to use")
 	addCmd.Flags().Bool("lock", false, "Lock the worktree after creation")
 	addCmd.Flags().String("reason", "", "Reason for locking (requires --lock)")
-	addCmd.Flags().StringArrayP("file", "F", nil, "File patterns to carry (requires --carry)")
+	addCmd.Flags().StringArrayP("file", "F", nil, "File patterns to sync/carry (requires --sync or --carry)")
 	addCmd.RegisterFlagCompletionFunc("file", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		// Resolve target directory from -C flag
 		dir, err := resolveCompletionDirectory(cmd)
