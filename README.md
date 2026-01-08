@@ -154,6 +154,41 @@ Details: [docs/reference/configuration.md](docs/reference/configuration.md)
 
 See the documentation above for detailed flags and specifications.
 
+## Claude Code Plugin
+
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) plugin is
+available for AI-assisted worktree management. The plugin provides an agent
+and skill that help Claude understand twig commands and execute worktree
+operations.
+
+### Plugin Installation
+
+Run the following slash commands in a Claude Code session:
+
+```txt
+# Add the marketplace
+/plugin marketplace add 708u/twig
+
+# Install the plugin
+/plugin install twig@708u-twig
+```
+
+### What the Plugin Provides
+
+| Component           | Description                                 |
+| ------------------- | ------------------------------------------- |
+| twig-operator agent | Executes twig commands based on user intent |
+| twig-guide skill    | Provides command syntax and usage details   |
+
+### Usage Examples
+
+Once installed, Claude can help with worktree operations:
+
+- "Create a new worktree for feat/user-auth"
+- "Move my current changes to a new branch"
+- "Clean up merged worktrees"
+- "I want to work on the API and frontend in parallel"
+
 ## License
 
 [MIT](LICENSE)
