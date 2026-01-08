@@ -43,7 +43,8 @@ Set `default_source` in config to always branch from a fixed base (e.g., main).
 ### Automatic symlink management via config
 
 Create new worktrees with personal settings like .envrc and Claude configs carried over.
-Start working immediately in new worktrees.
+Git worktree operations don't copy gitignored files, so twig uses symlinks to share these files across worktrees.
+Start working immediately in new worktrees without manual setup.
 
 ### Move uncommitted changes to a new branch
 
