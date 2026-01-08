@@ -1,0 +1,10 @@
+{
+  "name": "twig",
+  "version": "0.2.0",
+  "description": "Claude Code plugin for twig - simplifies git worktree workflows",
+  "author": {
+    "name": "708u"
+  },
+  "license": "MIT",
+  "keywords": ["git", "worktree", "branch", "cli", "twig"]
+}
