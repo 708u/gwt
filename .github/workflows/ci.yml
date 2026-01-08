@@ -97,7 +97,12 @@ jobs:
         run: ./scripts/sync-plugin-docs.sh
 
       - name: Check plugin docs are up to date
-        run: git diff --exit-code external/claude-code/plugins/
+        run: |
+          git diff external/claude-code/plugins/
+          if ! git diff --quiet external/claude-code/plugins/; then
+            echo "::error::Plugin docs are out of sync. Run 'make sync-plugin-docs' and commit."
+            exit 1
+          fi
 
   required-checks:
     needs: [lint, integration-test, completion-check, plugin-docs-check]
