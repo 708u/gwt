@@ -175,10 +175,10 @@ Run the following slash commands in a Claude Code session:
 
 ### What the Plugin Provides
 
-| Component | Description |
-| --------- | ----------- |
+| Component           | Description                                 |
+| ------------------- | ------------------------------------------- |
 | twig-operator agent | Executes twig commands based on user intent |
-| twig-guide skill | Provides command syntax and usage details |
+| twig-guide skill    | Provides command syntax and usage details   |
 
 ### Usage Examples
 
