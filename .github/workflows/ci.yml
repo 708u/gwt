@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.filter.outputs.go }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -20,6 +21,9 @@ jobs:
               - '**.go'
               - 'go.mod'
               - 'go.sum'
+            docs:
+              - 'docs/reference/**'
+              - 'scripts/sync-plugin-docs.sh'
 
   lint:
     needs: check-changes
@@ -82,8 +86,21 @@ jobs:
           ./out/twig completion powershell > completion/twig.ps1
           git diff --exit-code completion/
 
+  plugin-docs-check:
+    needs: check-changes
+    if: needs.check-changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync plugin docs
+        run: ./scripts/sync-plugin-docs.sh
+
+      - name: Check plugin docs are up to date
+        run: git diff --exit-code external/claude-code/plugins/
+
   required-checks:
-    needs: [lint, integration-test, completion-check]
+    needs: [lint, integration-test, completion-check, plugin-docs-check]
     if: always()
     runs-on: ubuntu-latest
     steps:
