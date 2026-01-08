@@ -61,6 +61,16 @@ If the changes affect subcommand behavior, update the documentation:
 - Document new flags, arguments, or behavior changes
 - Update examples if needed
 
+### 4. Sync Plugin Docs
+
+If you modified files in `docs/reference/`, run:
+
+```bash
+make sync-plugin-docs
+```
+
+See @docs/development/plugin-docs-sync.md for details.
+
 ### 5. Verify All Tests Pass
 
 Run the full test suite before completing:
