@@ -86,7 +86,7 @@ go test -tags=integration ./...   # Run integration tests
 
 ## User Instructions
 
-@.claude/user_instructions/
+@.claude/user_instructions/index.md
 
 Place personal markdown files in this directory for local instructions.
 These files are gitignored and will not be committed to the repository.
